@@ -1,13 +1,32 @@
 "use client"
 
+import type React from "react"
+
 import Image from "next/image"
 import { Star, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useState, useEffect } from "react"
+import { LaptopDetailModal } from "./laptop-detail-modal"
 
-const defaultProducts = [
+interface Laptop {
+  id: number
+  name: string
+  brand: string
+  price: string
+  originalPrice?: string
+  image?: string
+  images?: string[]
+  rating: number
+  reviews: number
+  badge: string
+  specs: string[]
+  inStock: boolean
+  description?: string
+}
+
+const defaultProducts: Laptop[] = [
   {
     id: 1,
     name: "MacBook Air M2",
@@ -62,8 +81,44 @@ const defaultProducts = [
   },
 ]
 
+// Add to cart function
+const addToCart = (laptop: Laptop) => {
+  const cartItem = {
+    id: laptop.id,
+    name: laptop.name,
+    brand: laptop.brand,
+    price: laptop.price,
+    quantity: 1,
+    image: laptop.images?.[0] || laptop.image || "/placeholder.svg",
+  }
+
+  // Get existing cart
+  const existingCart = JSON.parse(localStorage.getItem("swift-vibe-cart") || "[]")
+
+  // Check if item already exists
+  const existingItemIndex = existingCart.findIndex((item: any) => item.id === laptop.id)
+
+  if (existingItemIndex >= 0) {
+    // Update quantity
+    existingCart[existingItemIndex].quantity += 1
+  } else {
+    // Add new item
+    existingCart.push(cartItem)
+  }
+
+  // Save to localStorage
+  localStorage.setItem("swift-vibe-cart", JSON.stringify(existingCart))
+
+  // Dispatch custom event to update header
+  window.dispatchEvent(new CustomEvent("cartUpdated", { detail: existingCart }))
+
+  alert(`${laptop.name} added to cart!`)
+}
+
 export function FeaturedProducts() {
-  const [laptops, setLaptops] = useState(defaultProducts)
+  const [laptops, setLaptops] = useState<Laptop[]>(defaultProducts)
+  const [selectedLaptop, setSelectedLaptop] = useState<Laptop | null>(null)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
 
   // Load laptops from localStorage and listen for changes
   useEffect(() => {
@@ -91,8 +146,18 @@ export function FeaturedProducts() {
     return () => window.removeEventListener("storage", handleStorageChange)
   }, [])
 
+  const handleLaptopClick = (laptop: Laptop) => {
+    setSelectedLaptop(laptop)
+    setIsDetailOpen(true)
+  }
+
+  const handleAddToCart = (e: React.MouseEvent, laptop: Laptop) => {
+    e.stopPropagation() // Prevent opening detail modal
+    addToCart(laptop)
+  }
+
   // Get the primary image for display
-  const getPrimaryImage = (product: any) => {
+  const getPrimaryImage = (product: Laptop) => {
     if (product.images && product.images.length > 0) {
       return product.images[0]
     }
@@ -114,7 +179,8 @@ export function FeaturedProducts() {
           {laptops.map((product) => (
             <Card
               key={product.id}
-              className="group overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300"
+              className="group overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
+              onClick={() => handleLaptopClick(product)}
             >
               <div className="relative overflow-hidden">
                 <Image
@@ -135,6 +201,10 @@ export function FeaturedProducts() {
                 >
                   {product.badge}
                 </Badge>
+                {product.images && product.images.length > 1 && (
+                  <Badge className="absolute top-3 right-3 bg-blue-500">+{product.images.length - 1} more</Badge>
+                )}
+                {!product.inStock && <Badge className="absolute bottom-3 right-3 bg-red-500">Out of Stock</Badge>}
               </div>
 
               <CardContent className="p-4">
@@ -171,9 +241,14 @@ export function FeaturedProducts() {
                   </div>
                 </div>
 
-                <Button className="w-full bg-primary hover:bg-primary/90" size="sm">
+                <Button
+                  className="w-full bg-primary hover:bg-primary/90"
+                  size="sm"
+                  disabled={!product.inStock}
+                  onClick={(e) => handleAddToCart(e, product)}
+                >
                   <ShoppingCart className="mr-2 h-4 w-4" />
-                  Add to Cart
+                  {product.inStock ? "Add to Cart" : "Out of Stock"}
                 </Button>
               </CardContent>
             </Card>
@@ -186,6 +261,9 @@ export function FeaturedProducts() {
           </Button>
         </div>
       </div>
+
+      {/* Laptop Detail Modal */}
+      <LaptopDetailModal laptop={selectedLaptop} isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} />
     </section>
   )
 }

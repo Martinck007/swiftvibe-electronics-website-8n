@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Menu, Search, ShoppingCart, User, X, Settings, Mail } from "lucide-react"
@@ -14,13 +14,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Card, CardContent } from "@/components/ui/card"
 import { CheckoutModal } from "./checkout-modal"
 
+interface CartItem {
+  id: number
+  name: string
+  brand: string
+  price: string
+  quantity: number
+  image?: string
+}
+
 export function Header() {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [cartItems, setCartItems] = useState([
-    { id: 1, name: "MacBook Air M2", price: "ZMW 18,500", quantity: 1 },
-    { id: 2, name: "ThinkPad X1 Carbon", price: "ZMW 15,200", quantity: 1 },
-  ])
+  const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [isSignedIn, setIsSignedIn] = useState(false)
   const [userEmail, setUserEmail] = useState("")
   const [userPassword, setUserPassword] = useState("")
@@ -34,11 +40,36 @@ export function Header() {
     { name: "About", href: "/about" },
   ]
 
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    const savedCart = localStorage.getItem("swift-vibe-cart")
+    if (savedCart) {
+      try {
+        setCartItems(JSON.parse(savedCart))
+      } catch (error) {
+        console.error("Failed to load cart:", error)
+      }
+    }
+
+    // Listen for cart updates from other components
+    const handleCartUpdate = (event: CustomEvent) => {
+      setCartItems(event.detail)
+    }
+
+    window.addEventListener("cartUpdated" as any, handleCartUpdate)
+    return () => window.removeEventListener("cartUpdated" as any, handleCartUpdate)
+  }, [])
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("swift-vibe-cart", JSON.stringify(cartItems))
+  }, [cartItems])
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
-      // Simulate search functionality
-      alert(`Searching for: ${searchQuery}`)
+      // Navigate to laptops page with search query
+      window.location.href = `/laptops?search=${encodeURIComponent(searchQuery)}`
       setSearchQuery("")
     }
   }
@@ -59,7 +90,18 @@ export function Header() {
   }
 
   const removeFromCart = (id: number) => {
-    setCartItems(cartItems.filter((item) => item.id !== id))
+    const updatedCart = cartItems.filter((item) => item.id !== id)
+    setCartItems(updatedCart)
+  }
+
+  const updateQuantity = (id: number, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      removeFromCart(id)
+      return
+    }
+
+    const updatedCart = cartItems.map((item) => (item.id === id ? { ...item, quantity: newQuantity } : item))
+    setCartItems(updatedCart)
   }
 
   const getTotalPrice = () => {
@@ -246,7 +288,7 @@ export function Header() {
                 <ShoppingCart className="h-5 w-5" />
                 {cartItems.length > 0 && (
                   <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    {cartItems.length}
+                    {cartItems.reduce((total, item) => total + item.quantity, 0)}
                   </Badge>
                 )}
               </Button>
@@ -265,11 +307,37 @@ export function Header() {
                     cartItems.map((item) => (
                       <Card key={item.id}>
                         <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
+                          <div className="flex items-center space-x-3">
+                            {item.image && (
+                              <img
+                                src={item.image || "/placeholder.svg"}
+                                alt={item.name}
+                                className="w-12 h-12 object-cover rounded"
+                              />
+                            )}
+                            <div className="flex-1">
                               <h3 className="font-medium">{item.name}</h3>
-                              <p className="text-sm text-gray-600">{item.price}</p>
-                              <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                              <p className="text-sm text-gray-600">{item.brand}</p>
+                              <p className="text-sm font-semibold text-primary">{item.price}</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              >
+                                -
+                              </Button>
+                              <span className="w-8 text-center">{item.quantity}</span>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              >
+                                +
+                              </Button>
                             </div>
                             <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)}>
                               <X className="h-4 w-4" />
@@ -320,7 +388,6 @@ export function Header() {
                 </Link>
               ))}
 
-              {/* Admin Link in Mobile Menu */}
               <Link
                 href="/admin"
                 className="text-lg font-medium text-gray-700 hover:text-primary transition-colors flex items-center"
@@ -341,7 +408,7 @@ export function Header() {
                   <ShoppingCart className="h-5 w-5" />
                   {cartItems.length > 0 && (
                     <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                      {cartItems.length}
+                      {cartItems.reduce((total, item) => total + item.quantity, 0)}
                     </Badge>
                   )}
                 </Button>

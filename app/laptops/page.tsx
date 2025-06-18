@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -9,6 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { LaptopDetailModal } from "@/components/laptop-detail-modal"
+import { useSearchParams } from "next/navigation"
 
 interface LaptopData {
   id: number
@@ -16,7 +20,7 @@ interface LaptopData {
   brand: string
   price: string
   originalPrice?: string
-  image: string
+  image?: string
   images?: string[]
   rating: number
   reviews: number
@@ -26,107 +30,75 @@ interface LaptopData {
   description?: string
 }
 
-export default function LaptopsPage() {
-  const [laptops, setLaptops] = useState<LaptopData[]>([
-    {
-      id: 1,
-      name: "MacBook Air M2",
-      brand: "Apple",
-      price: "ZMW 18,500",
-      originalPrice: "ZMW 20,000",
-      image: "/placeholder.svg?height=300&width=400",
-      rating: 4.9,
-      reviews: 124,
-      badge: "Best Seller",
-      specs: ["13.6-inch Display", "8GB RAM", "256GB SSD", "M2 Chip"],
-      inStock: true,
-    },
-    {
-      id: 2,
-      name: "ThinkPad X1 Carbon",
-      brand: "Lenovo",
-      price: "ZMW 15,200",
-      originalPrice: "ZMW 16,800",
-      image: "/placeholder.svg?height=300&width=400",
-      rating: 4.7,
-      reviews: 89,
-      badge: "Professional",
-      specs: ["14-inch Display", "16GB RAM", "512GB SSD", "Intel i7"],
-      inStock: true,
-    },
-    {
-      id: 3,
-      name: "XPS 13 Plus",
-      brand: "Dell",
-      price: "ZMW 16,900",
-      originalPrice: "ZMW 18,500",
-      image: "/placeholder.svg?height=300&width=400",
-      rating: 4.8,
-      reviews: 156,
-      badge: "Premium",
-      specs: ["13.4-inch Display", "16GB RAM", "1TB SSD", "Intel i7"],
-      inStock: true,
-    },
-    {
-      id: 4,
-      name: "Surface Laptop 5",
-      brand: "Microsoft",
-      price: "ZMW 14,300",
-      originalPrice: "ZMW 15,800",
-      image: "/placeholder.svg?height=300&width=400",
-      rating: 4.6,
-      reviews: 73,
-      badge: "New Arrival",
-      specs: ["13.5-inch Display", "8GB RAM", "256GB SSD", "Intel i5"],
-      inStock: true,
-    },
-    {
-      id: 5,
-      name: "MacBook Pro 14",
-      brand: "Apple",
-      price: "ZMW 25,900",
-      originalPrice: "ZMW 28,000",
-      image: "/placeholder.svg?height=300&width=400",
-      rating: 4.9,
-      reviews: 201,
-      badge: "Premium",
-      specs: ["14-inch Display", "16GB RAM", "512GB SSD", "M2 Pro"],
-      inStock: true,
-    },
-    {
-      id: 6,
-      name: "HP Spectre x360",
-      brand: "HP",
-      price: "ZMW 17,800",
-      originalPrice: "ZMW 19,500",
-      image: "/placeholder.svg?height=300&width=400",
-      images: ["/placeholder.svg?height=300&width=400", "/placeholder.svg?height=300&width=400"],
-      rating: 4.5,
-      reviews: 92,
-      badge: "2-in-1",
-      specs: ["13.5-inch Touch", "16GB RAM", "1TB SSD", "Intel i7"],
-      inStock: false,
-    },
-  ])
+// Add to cart function
+const addToCart = (laptop: LaptopData) => {
+  const cartItem = {
+    id: laptop.id,
+    name: laptop.name,
+    brand: laptop.brand,
+    price: laptop.price,
+    quantity: 1,
+    image: laptop.images?.[0] || laptop.image || "/placeholder.svg",
+  }
 
-  const [filteredLaptops, setFilteredLaptops] = useState<LaptopData[]>(laptops)
+  // Get existing cart
+  const existingCart = JSON.parse(localStorage.getItem("swift-vibe-cart") || "[]")
+
+  // Check if item already exists
+  const existingItemIndex = existingCart.findIndex((item: any) => item.id === laptop.id)
+
+  if (existingItemIndex >= 0) {
+    // Update quantity
+    existingCart[existingItemIndex].quantity += 1
+  } else {
+    // Add new item
+    existingCart.push(cartItem)
+  }
+
+  // Save to localStorage
+  localStorage.setItem("swift-vibe-cart", JSON.stringify(existingCart))
+
+  // Dispatch custom event to update header
+  window.dispatchEvent(new CustomEvent("cartUpdated", { detail: existingCart }))
+
+  alert(`${laptop.name} added to cart!`)
+}
+
+export default function LaptopsPage() {
+  const searchParams = useSearchParams()
+  const [laptops, setLaptops] = useState<LaptopData[]>([])
+  const [filteredLaptops, setFilteredLaptops] = useState<LaptopData[]>([])
   const [selectedBrand, setSelectedBrand] = useState("All")
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchQuery, setSearchQuery] = useState(searchParams?.get("search") || "")
+  const [selectedLaptop, setSelectedLaptop] = useState<LaptopData | null>(null)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
 
   const brands = ["All", ...new Set(laptops.map((laptop) => laptop.brand))]
 
-  // Load laptops from localStorage
+  // Load laptops from localStorage and listen for changes
   useEffect(() => {
-    const saved = localStorage.getItem("swift-vibe-laptops")
-    if (saved) {
-      try {
-        const savedLaptops = JSON.parse(saved)
-        setLaptops(savedLaptops)
-        setFilteredLaptops(savedLaptops)
-      } catch (error) {
-        console.error("Failed to load saved laptops:", error)
+    const loadLaptops = () => {
+      const saved = localStorage.getItem("swift-vibe-laptops")
+      if (saved) {
+        try {
+          const savedLaptops = JSON.parse(saved)
+          setLaptops(savedLaptops)
+          setFilteredLaptops(savedLaptops)
+        } catch (error) {
+          console.error("Failed to load saved laptops:", error)
+        }
       }
     }
+
+    loadLaptops()
+
+    // Listen for storage changes
+    const handleStorageChange = () => {
+      loadLaptops()
+    }
+
+    window.addEventListener("storage", handleStorageChange)
+    return () => window.removeEventListener("storage", handleStorageChange)
   }, [])
 
   // Filter laptops based on brand and search
@@ -148,6 +120,26 @@ export default function LaptopsPage() {
 
     setFilteredLaptops(filtered)
   }, [laptops, selectedBrand, searchQuery])
+
+  const handleLaptopClick = (laptop: LaptopData) => {
+    setSelectedLaptop(laptop)
+    setIsDetailOpen(true)
+  }
+
+  const handleAddToCart = (e: React.MouseEvent, laptop: LaptopData) => {
+    e.stopPropagation() // Prevent opening detail modal
+    addToCart(laptop)
+  }
+
+  const getPrimaryImage = (laptop: LaptopData) => {
+    if (laptop.images && laptop.images.length > 0) {
+      return laptop.images[0]
+    }
+    if (laptop.image) {
+      return laptop.image
+    }
+    return "/placeholder.svg?height=300&width=400"
+  }
 
   return (
     <main className="min-h-screen">
@@ -233,11 +225,12 @@ export default function LaptopsPage() {
               {filteredLaptops.map((laptop) => (
                 <Card
                   key={laptop.id}
-                  className="group overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300"
+                  className="group overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
+                  onClick={() => handleLaptopClick(laptop)}
                 >
                   <div className="relative overflow-hidden">
                     <img
-                      src={laptop.images?.[0] || laptop.image || "/placeholder.svg"}
+                      src={getPrimaryImage(laptop) || "/placeholder.svg"}
                       alt={laptop.name}
                       className="h-48 w-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
@@ -254,7 +247,7 @@ export default function LaptopsPage() {
                     </Badge>
                     {!laptop.inStock && <Badge className="absolute top-3 right-3 bg-red-500">Out of Stock</Badge>}
                     {laptop.images && laptop.images.length > 1 && (
-                      <Badge className="absolute top-3 right-3 bg-blue-500">+{laptop.images.length - 1} more</Badge>
+                      <Badge className="absolute bottom-3 right-3 bg-blue-500">+{laptop.images.length - 1} more</Badge>
                     )}
                   </div>
 
@@ -275,7 +268,7 @@ export default function LaptopsPage() {
                     </div>
 
                     <ul className="text-xs text-gray-600 mb-3 space-y-1">
-                      {laptop.specs.map((spec, index) => (
+                      {laptop.specs.slice(0, 3).map((spec, index) => (
                         <li key={index}>• {spec}</li>
                       ))}
                     </ul>
@@ -289,7 +282,12 @@ export default function LaptopsPage() {
                       </div>
                     </div>
 
-                    <Button className="w-full bg-primary hover:bg-primary/90" size="sm" disabled={!laptop.inStock}>
+                    <Button
+                      className="w-full bg-primary hover:bg-primary/90"
+                      size="sm"
+                      disabled={!laptop.inStock}
+                      onClick={(e) => handleAddToCart(e, laptop)}
+                    >
                       <ShoppingCart className="mr-2 h-4 w-4" />
                       {laptop.inStock ? "Add to Cart" : "Out of Stock"}
                     </Button>
@@ -300,6 +298,9 @@ export default function LaptopsPage() {
           )}
         </div>
       </section>
+
+      {/* Laptop Detail Modal */}
+      <LaptopDetailModal laptop={selectedLaptop} isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} />
 
       <Footer />
     </main>

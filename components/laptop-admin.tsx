@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { MultiImageUpload } from "./multi-image-upload"
+import { ImageGallery } from "./image-gallery"
 import { Plus, Edit, Trash2, Save, X, Star } from "lucide-react"
 
 interface Laptop {
@@ -97,7 +98,16 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
     }
 
     console.log("Final laptops array:", updatedLaptops)
+
+    // Update the laptops
     onLaptopsUpdate(updatedLaptops)
+
+    // Trigger storage event to update other components
+    window.dispatchEvent(new Event("storage"))
+
+    // Show success message
+    alert(editingLaptop ? "Laptop updated successfully!" : "Laptop added successfully!")
+
     resetForm()
     setIsOpen(false)
   }
@@ -122,6 +132,11 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
       const updatedLaptops = laptops.filter((laptop) => laptop.id !== id)
       console.log("Deleting laptop, updated array:", updatedLaptops)
       onLaptopsUpdate(updatedLaptops)
+
+      // Trigger storage event to update other components
+      window.dispatchEvent(new Event("storage"))
+
+      alert("Laptop deleted successfully!")
     }
   }
 
@@ -326,8 +341,8 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
         {laptops.map((laptop) => (
           <Card key={laptop.id} className="overflow-hidden">
             <div className="relative">
-              <img
-                src={getPrimaryImage(laptop) || "/placeholder.svg"}
+              <ImageGallery
+                images={laptop.images || [getPrimaryImage(laptop)]}
                 alt={laptop.name}
                 className="w-full h-48 object-cover"
               />
