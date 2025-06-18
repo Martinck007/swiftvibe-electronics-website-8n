@@ -13,7 +13,8 @@ interface LaptopData {
   brand: string
   price: string
   originalPrice?: string
-  image: string
+  image?: string
+  images?: string[]
   rating: number
   reviews: number
   badge: string
@@ -23,51 +24,75 @@ interface LaptopData {
 }
 
 export default function AdminPage() {
-  const [laptops, setLaptops] = useState<LaptopData[]>([
-    {
-      id: 1,
-      name: "MacBook Air M2",
-      brand: "Apple",
-      price: "ZMW 18,500",
-      originalPrice: "ZMW 20,000",
-      image: "/placeholder.svg?height=300&width=400",
-      rating: 4.9,
-      reviews: 124,
-      badge: "Best Seller",
-      specs: ["13.6-inch Display", "8GB RAM", "256GB SSD", "M2 Chip"],
-      inStock: true,
-    },
-    {
-      id: 2,
-      name: "ThinkPad X1 Carbon",
-      brand: "Lenovo",
-      price: "ZMW 15,200",
-      originalPrice: "ZMW 16,800",
-      image: "/placeholder.svg?height=300&width=400",
-      rating: 4.7,
-      reviews: 89,
-      badge: "Professional",
-      specs: ["14-inch Display", "16GB RAM", "512GB SSD", "Intel i7"],
-      inStock: true,
-    },
-  ])
-
-  // Save to localStorage whenever laptops change
-  useEffect(() => {
-    localStorage.setItem("swift-vibe-laptops", JSON.stringify(laptops))
-  }, [laptops])
+  const [laptops, setLaptops] = useState<LaptopData[]>([])
+  const [isLoaded, setIsLoaded] = useState(false)
 
   // Load from localStorage on component mount
   useEffect(() => {
-    const saved = localStorage.getItem("swift-vibe-laptops")
-    if (saved) {
-      try {
-        setLaptops(JSON.parse(saved))
-      } catch (error) {
-        console.error("Failed to load saved laptops:", error)
+    const loadLaptops = () => {
+      const saved = localStorage.getItem("swift-vibe-laptops")
+      if (saved) {
+        try {
+          const savedLaptops = JSON.parse(saved)
+          console.log("Loaded laptops from localStorage:", savedLaptops)
+          setLaptops(savedLaptops)
+        } catch (error) {
+          console.error("Failed to load saved laptops:", error)
+          // Set default laptops if localStorage is corrupted
+          setDefaultLaptops()
+        }
+      } else {
+        // Set default laptops if no localStorage data
+        setDefaultLaptops()
       }
+      setIsLoaded(true)
     }
+
+    loadLaptops()
   }, [])
+
+  const setDefaultLaptops = () => {
+    const defaultLaptops = [
+      {
+        id: 1,
+        name: "MacBook Air M2",
+        brand: "Apple",
+        price: "ZMW 18,500",
+        originalPrice: "ZMW 20,000",
+        images: ["/placeholder.svg?height=300&width=400"],
+        rating: 4.9,
+        reviews: 124,
+        badge: "Best Seller",
+        specs: ["13.6-inch Display", "8GB RAM", "256GB SSD", "M2 Chip"],
+        inStock: true,
+      },
+      {
+        id: 2,
+        name: "ThinkPad X1 Carbon",
+        brand: "Lenovo",
+        price: "ZMW 15,200",
+        originalPrice: "ZMW 16,800",
+        images: ["/placeholder.svg?height=300&width=400"],
+        rating: 4.7,
+        reviews: 89,
+        badge: "Professional",
+        specs: ["14-inch Display", "16GB RAM", "512GB SSD", "Intel i7"],
+        inStock: true,
+      },
+    ]
+    setLaptops(defaultLaptops)
+    localStorage.setItem("swift-vibe-laptops", JSON.stringify(defaultLaptops))
+  }
+
+  // Save to localStorage whenever laptops change
+  const handleLaptopsUpdate = (updatedLaptops: LaptopData[]) => {
+    console.log("Updating laptops:", updatedLaptops)
+    setLaptops(updatedLaptops)
+    localStorage.setItem("swift-vibe-laptops", JSON.stringify(updatedLaptops))
+
+    // Trigger a storage event to notify other components
+    window.dispatchEvent(new Event("storage"))
+  }
 
   const stats = [
     { icon: Package, label: "Total Laptops", value: laptops.length.toString() },
@@ -75,6 +100,20 @@ export default function AdminPage() {
     { icon: Users, label: "Brands", value: new Set(laptops.map((l) => l.brand)).size.toString() },
     { icon: Shield, label: "Admin Access", value: "Active" },
   ]
+
+  if (!isLoaded) {
+    return (
+      <main className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="container px-4 py-8 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <p>Loading admin dashboard...</p>
+          </div>
+        </div>
+        <Footer />
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -112,7 +151,7 @@ export default function AdminPage() {
             <CardTitle>Laptop Inventory Management</CardTitle>
           </CardHeader>
           <CardContent>
-            <LaptopAdmin laptops={laptops} onLaptopsUpdate={setLaptops} />
+            <LaptopAdmin laptops={laptops} onLaptopsUpdate={handleLaptopsUpdate} />
           </CardContent>
         </Card>
       </div>

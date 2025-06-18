@@ -7,18 +7,19 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useState, useEffect } from "react"
 
-const products = [
+const defaultProducts = [
   {
     id: 1,
     name: "MacBook Air M2",
     brand: "Apple",
     price: "ZMW 18,500",
     originalPrice: "ZMW 20,000",
-    image: "/placeholder.svg?height=300&width=400",
+    images: ["/placeholder.svg?height=300&width=400"],
     rating: 4.9,
     reviews: 124,
     badge: "Best Seller",
     specs: ["13.6-inch Display", "8GB RAM", "256GB SSD"],
+    inStock: true,
   },
   {
     id: 2,
@@ -26,11 +27,12 @@ const products = [
     brand: "Lenovo",
     price: "ZMW 15,200",
     originalPrice: "ZMW 16,800",
-    image: "/placeholder.svg?height=300&width=400",
+    images: ["/placeholder.svg?height=300&width=400"],
     rating: 4.7,
     reviews: 89,
     badge: "Professional",
     specs: ["14-inch Display", "16GB RAM", "512GB SSD"],
+    inStock: true,
   },
   {
     id: 3,
@@ -38,11 +40,12 @@ const products = [
     brand: "Dell",
     price: "ZMW 16,900",
     originalPrice: "ZMW 18,500",
-    image: "/placeholder.svg?height=300&width=400",
+    images: ["/placeholder.svg?height=300&width=400"],
     rating: 4.8,
     reviews: 156,
     badge: "Premium",
     specs: ["13.4-inch Display", "16GB RAM", "1TB SSD"],
+    inStock: true,
   },
   {
     id: 4,
@@ -50,30 +53,54 @@ const products = [
     brand: "Microsoft",
     price: "ZMW 14,300",
     originalPrice: "ZMW 15,800",
-    image: "/placeholder.svg?height=300&width=400",
+    images: ["/placeholder.svg?height=300&width=400"],
     rating: 4.6,
     reviews: 73,
     badge: "Refurbished",
     specs: ["13.5-inch Display", "8GB RAM", "256GB SSD"],
+    inStock: true,
   },
 ]
 
 export function FeaturedProducts() {
-  const [laptops, setLaptops] = useState(products)
+  const [laptops, setLaptops] = useState(defaultProducts)
 
-  // Load laptops from localStorage
+  // Load laptops from localStorage and listen for changes
   useEffect(() => {
-    const saved = localStorage.getItem("swift-vibe-laptops")
-    if (saved) {
-      try {
-        const savedLaptops = JSON.parse(saved)
-        // Take first 4 laptops for featured section
-        setLaptops(savedLaptops.slice(0, 4))
-      } catch (error) {
-        console.error("Failed to load saved laptops:", error)
+    const loadLaptops = () => {
+      const saved = localStorage.getItem("swift-vibe-laptops")
+      if (saved) {
+        try {
+          const savedLaptops = JSON.parse(saved)
+          // Take first 4 laptops for featured section
+          setLaptops(savedLaptops.slice(0, 4))
+        } catch (error) {
+          console.error("Failed to load saved laptops:", error)
+        }
       }
     }
+
+    loadLaptops()
+
+    // Listen for storage changes
+    const handleStorageChange = () => {
+      loadLaptops()
+    }
+
+    window.addEventListener("storage", handleStorageChange)
+    return () => window.removeEventListener("storage", handleStorageChange)
   }, [])
+
+  // Get the primary image for display
+  const getPrimaryImage = (product: any) => {
+    if (product.images && product.images.length > 0) {
+      return product.images[0]
+    }
+    if (product.image) {
+      return product.image
+    }
+    return "/placeholder.svg?height=300&width=400"
+  }
 
   return (
     <section className="py-16 bg-white">
@@ -91,7 +118,7 @@ export function FeaturedProducts() {
             >
               <div className="relative overflow-hidden">
                 <Image
-                  src={product.images?.[0] || product.image || "/placeholder.svg"}
+                  src={getPrimaryImage(product) || "/placeholder.svg"}
                   alt={product.name}
                   width={400}
                   height={300}
@@ -126,11 +153,14 @@ export function FeaturedProducts() {
                   <span className="ml-2 text-sm text-gray-500">({product.reviews})</span>
                 </div>
 
-                <ul className="text-xs text-gray-600 mb-3 space-y-1">
-                  {product.specs.map((spec, index) => (
-                    <li key={index}>• {spec}</li>
-                  ))}
-                </ul>
+                {/* Specifications */}
+                {product.specs && product.specs.length > 0 && (
+                  <ul className="text-xs text-gray-600 mb-3 space-y-1">
+                    {product.specs.slice(0, 3).map((spec: string, index: number) => (
+                      <li key={index}>• {spec}</li>
+                    ))}
+                  </ul>
+                )}
 
                 <div className="flex items-center justify-between mb-3">
                   <div>
