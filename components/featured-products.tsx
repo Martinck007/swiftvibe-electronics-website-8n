@@ -234,15 +234,24 @@ export function FeaturedProducts() {
       loadLaptops()
     }
 
+    // Listen for direct laptop updates
+    const handleLaptopsUpdate = (event: CustomEvent) => {
+      console.log("Featured products updated:", event.detail)
+      // Take first 4 laptops for featured section
+      setLaptops(event.detail.slice(0, 4))
+    }
+
     const handleWishlistUpdate = (event: CustomEvent) => {
       setWishlistItems(event.detail.map((item: any) => item.id))
     }
 
     window.addEventListener("storage", handleStorageChange)
+    window.addEventListener("laptopsUpdated" as any, handleLaptopsUpdate)
     window.addEventListener("wishlistUpdated" as any, handleWishlistUpdate)
 
     return () => {
       window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("laptopsUpdated" as any, handleLaptopsUpdate)
       window.removeEventListener("wishlistUpdated" as any, handleWishlistUpdate)
     }
   }, [])

@@ -105,6 +105,9 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
     // Trigger storage event to update other components
     window.dispatchEvent(new Event("storage"))
 
+    // Dispatch custom event for immediate updates
+    window.dispatchEvent(new CustomEvent("laptopsUpdated", { detail: updatedLaptops }))
+
     // Show success message
     alert(editingLaptop ? "Laptop updated successfully!" : "Laptop added successfully!")
 
@@ -135,6 +138,9 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
 
       // Trigger storage event to update other components
       window.dispatchEvent(new Event("storage"))
+
+      // Dispatch custom event for immediate updates
+      window.dispatchEvent(new CustomEvent("laptopsUpdated", { detail: updatedLaptops }))
 
       alert("Laptop deleted successfully!")
     }

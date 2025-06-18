@@ -189,15 +189,24 @@ export default function LaptopsPage() {
       loadLaptops()
     }
 
+    // Listen for direct laptop updates
+    const handleLaptopsUpdate = (event: CustomEvent) => {
+      console.log("Laptops updated:", event.detail)
+      setLaptops(event.detail)
+      setFilteredLaptops(event.detail)
+    }
+
     const handleWishlistUpdate = (event: CustomEvent) => {
       setWishlistItems(event.detail.map((item: any) => item.id))
     }
 
     window.addEventListener("storage", handleStorageChange)
+    window.addEventListener("laptopsUpdated" as any, handleLaptopsUpdate)
     window.addEventListener("wishlistUpdated" as any, handleWishlistUpdate)
 
     return () => {
       window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("laptopsUpdated" as any, handleLaptopsUpdate)
       window.removeEventListener("wishlistUpdated" as any, handleWishlistUpdate)
     }
   }, [])

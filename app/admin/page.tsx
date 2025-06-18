@@ -92,6 +92,9 @@ export default function AdminPage() {
 
     // Trigger a storage event to notify other components
     window.dispatchEvent(new Event("storage"))
+
+    // Dispatch custom event for immediate updates
+    window.dispatchEvent(new CustomEvent("laptopsUpdated", { detail: updatedLaptops }))
   }
 
   const stats = [
