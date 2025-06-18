@@ -3,7 +3,7 @@
 import type React from "react"
 
 import Image from "next/image"
-import { Star, ShoppingCart } from "lucide-react"
+import { Star, ShoppingCart, Heart, Share2, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -115,10 +115,89 @@ const addToCart = (laptop: Laptop) => {
   alert(`${laptop.name} added to cart!`)
 }
 
+// Wishlist functions
+const addToWishlist = (laptop: Laptop) => {
+  const wishlistItem = {
+    id: laptop.id,
+    name: laptop.name,
+    brand: laptop.brand,
+    price: laptop.price,
+    image: laptop.images?.[0] || laptop.image || "/placeholder.svg",
+    dateAdded: new Date().toISOString(),
+  }
+
+  // Get existing wishlist
+  const existingWishlist = JSON.parse(localStorage.getItem("swift-vibe-wishlist") || "[]")
+
+  // Check if item already exists
+  const existingItemIndex = existingWishlist.findIndex((item: any) => item.id === laptop.id)
+
+  if (existingItemIndex >= 0) {
+    alert(`${laptop.name} is already in your wishlist!`)
+    return false
+  } else {
+    // Add new item
+    existingWishlist.push(wishlistItem)
+    localStorage.setItem("swift-vibe-wishlist", JSON.stringify(existingWishlist))
+
+    // Dispatch custom event to update wishlist
+    window.dispatchEvent(new CustomEvent("wishlistUpdated", { detail: existingWishlist }))
+
+    alert(`${laptop.name} added to wishlist!`)
+    return true
+  }
+}
+
+const removeFromWishlist = (laptopId: number) => {
+  const existingWishlist = JSON.parse(localStorage.getItem("swift-vibe-wishlist") || "[]")
+  const updatedWishlist = existingWishlist.filter((item: any) => item.id !== laptopId)
+
+  localStorage.setItem("swift-vibe-wishlist", JSON.stringify(updatedWishlist))
+  window.dispatchEvent(new CustomEvent("wishlistUpdated", { detail: updatedWishlist }))
+
+  return true
+}
+
+const isInWishlist = (laptopId: number) => {
+  const existingWishlist = JSON.parse(localStorage.getItem("swift-vibe-wishlist") || "[]")
+  return existingWishlist.some((item: any) => item.id === laptopId)
+}
+
+// Share function
+const shareProduct = async (laptop: Laptop) => {
+  const shareData = {
+    title: `${laptop.name} - Swift-Vibe Electronics`,
+    text: `Check out this ${laptop.brand} ${laptop.name} for ${laptop.price} at Swift-Vibe Electronics!`,
+    url: window.location.origin,
+  }
+
+  try {
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      await navigator.share(shareData)
+    } else {
+      // Fallback: Copy to clipboard
+      const shareText = `${shareData.title}\n${shareData.text}\n${shareData.url}`
+      await navigator.clipboard.writeText(shareText)
+      alert("Product link copied to clipboard!")
+    }
+  } catch (error) {
+    // Final fallback: Manual copy
+    const shareText = `${shareData.title}\n${shareData.text}\n${shareData.url}`
+    const textArea = document.createElement("textarea")
+    textArea.value = shareText
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand("copy")
+    document.body.removeChild(textArea)
+    alert("Product link copied to clipboard!")
+  }
+}
+
 export function FeaturedProducts() {
   const [laptops, setLaptops] = useState<Laptop[]>(defaultProducts)
   const [selectedLaptop, setSelectedLaptop] = useState<Laptop | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [wishlistItems, setWishlistItems] = useState<number[]>([])
 
   // Load laptops from localStorage and listen for changes
   useEffect(() => {
@@ -135,15 +214,37 @@ export function FeaturedProducts() {
       }
     }
 
+    const loadWishlist = () => {
+      const saved = localStorage.getItem("swift-vibe-wishlist")
+      if (saved) {
+        try {
+          const wishlist = JSON.parse(saved)
+          setWishlistItems(wishlist.map((item: any) => item.id))
+        } catch (error) {
+          console.error("Failed to load wishlist:", error)
+        }
+      }
+    }
+
     loadLaptops()
+    loadWishlist()
 
     // Listen for storage changes
     const handleStorageChange = () => {
       loadLaptops()
     }
 
+    const handleWishlistUpdate = (event: CustomEvent) => {
+      setWishlistItems(event.detail.map((item: any) => item.id))
+    }
+
     window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
+    window.addEventListener("wishlistUpdated" as any, handleWishlistUpdate)
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("wishlistUpdated" as any, handleWishlistUpdate)
+    }
   }, [])
 
   const handleLaptopClick = (laptop: Laptop) => {
@@ -154,6 +255,22 @@ export function FeaturedProducts() {
   const handleAddToCart = (e: React.MouseEvent, laptop: Laptop) => {
     e.stopPropagation() // Prevent opening detail modal
     addToCart(laptop)
+  }
+
+  const handleWishlistToggle = (e: React.MouseEvent, laptop: Laptop) => {
+    e.stopPropagation() // Prevent opening detail modal
+
+    if (wishlistItems.includes(laptop.id)) {
+      removeFromWishlist(laptop.id)
+      alert(`${laptop.name} removed from wishlist!`)
+    } else {
+      addToWishlist(laptop)
+    }
+  }
+
+  const handleShare = (e: React.MouseEvent, laptop: Laptop) => {
+    e.stopPropagation() // Prevent opening detail modal
+    shareProduct(laptop)
   }
 
   // Get the primary image for display
@@ -205,6 +322,30 @@ export function FeaturedProducts() {
                   <Badge className="absolute top-3 right-3 bg-blue-500">+{product.images.length - 1} more</Badge>
                 )}
                 {!product.inStock && <Badge className="absolute bottom-3 right-3 bg-red-500">Out of Stock</Badge>}
+
+                {/* Action buttons overlay */}
+                <div className="absolute top-3 right-3 flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-8 w-8 bg-white/90 hover:bg-white"
+                    onClick={(e) => handleWishlistToggle(e, product)}
+                  >
+                    {wishlistItems.includes(product.id) ? (
+                      <Check className="h-4 w-4 text-red-500" />
+                    ) : (
+                      <Heart className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-8 w-8 bg-white/90 hover:bg-white"
+                    onClick={(e) => handleShare(e, product)}
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <CardContent className="p-4">

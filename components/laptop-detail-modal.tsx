@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { ImageGallery } from "./image-gallery"
-import { Star, ShoppingCart, Heart, Share2 } from "lucide-react"
+import { Star, ShoppingCart, Heart, Share2, Check } from "lucide-react"
 
 interface Laptop {
   id: number
@@ -63,10 +63,109 @@ const addToCart = (laptop: Laptop) => {
   alert(`${laptop.name} added to cart!`)
 }
 
+// Wishlist functions
+const addToWishlist = (laptop: Laptop) => {
+  const wishlistItem = {
+    id: laptop.id,
+    name: laptop.name,
+    brand: laptop.brand,
+    price: laptop.price,
+    image: laptop.images?.[0] || "/placeholder.svg",
+    dateAdded: new Date().toISOString(),
+  }
+
+  // Get existing wishlist
+  const existingWishlist = JSON.parse(localStorage.getItem("swift-vibe-wishlist") || "[]")
+
+  // Check if item already exists
+  const existingItemIndex = existingWishlist.findIndex((item: any) => item.id === laptop.id)
+
+  if (existingItemIndex >= 0) {
+    alert(`${laptop.name} is already in your wishlist!`)
+    return false
+  } else {
+    // Add new item
+    existingWishlist.push(wishlistItem)
+    localStorage.setItem("swift-vibe-wishlist", JSON.stringify(existingWishlist))
+
+    // Dispatch custom event to update wishlist
+    window.dispatchEvent(new CustomEvent("wishlistUpdated", { detail: existingWishlist }))
+
+    alert(`${laptop.name} added to wishlist!`)
+    return true
+  }
+}
+
+const removeFromWishlist = (laptopId: number) => {
+  const existingWishlist = JSON.parse(localStorage.getItem("swift-vibe-wishlist") || "[]")
+  const updatedWishlist = existingWishlist.filter((item: any) => item.id !== laptopId)
+
+  localStorage.setItem("swift-vibe-wishlist", JSON.stringify(updatedWishlist))
+  window.dispatchEvent(new CustomEvent("wishlistUpdated", { detail: updatedWishlist }))
+
+  return true
+}
+
+const isInWishlist = (laptopId: number) => {
+  const existingWishlist = JSON.parse(localStorage.getItem("swift-vibe-wishlist") || "[]")
+  return existingWishlist.some((item: any) => item.id === laptopId)
+}
+
+// Share function
+const shareProduct = async (laptop: Laptop) => {
+  const shareData = {
+    title: `${laptop.name} - Swift-Vibe Electronics`,
+    text: `Check out this ${laptop.brand} ${laptop.name} for ${laptop.price} at Swift-Vibe Electronics!`,
+    url: window.location.href,
+  }
+
+  try {
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      await navigator.share(shareData)
+    } else {
+      // Fallback: Copy to clipboard
+      const shareText = `${shareData.title}\n${shareData.text}\n${shareData.url}`
+      await navigator.clipboard.writeText(shareText)
+      alert("Product link copied to clipboard!")
+    }
+  } catch (error) {
+    // Final fallback: Manual copy
+    const shareText = `${shareData.title}\n${shareData.text}\n${shareData.url}`
+    const textArea = document.createElement("textarea")
+    textArea.value = shareText
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand("copy")
+    document.body.removeChild(textArea)
+    alert("Product link copied to clipboard!")
+  }
+}
+
 export function LaptopDetailModal({ laptop, isOpen, onClose }: LaptopDetailModalProps) {
   const [selectedTab, setSelectedTab] = useState("specs")
+  const [inWishlist, setInWishlist] = useState(false)
+
+  // Check wishlist status when laptop changes
+  useState(() => {
+    if (laptop) {
+      setInWishlist(isInWishlist(laptop.id))
+    }
+  })
 
   if (!laptop) return null
+
+  const handleWishlistToggle = () => {
+    if (inWishlist) {
+      removeFromWishlist(laptop.id)
+      setInWishlist(false)
+      alert(`${laptop.name} removed from wishlist!`)
+    } else {
+      const added = addToWishlist(laptop)
+      if (added) {
+        setInWishlist(true)
+      }
+    }
+  }
 
   const tabs = [
     { id: "specs", label: "Specifications" },
@@ -140,11 +239,24 @@ export function LaptopDetailModal({ laptop, isOpen, onClose }: LaptopDetailModal
               </Button>
 
               <div className="flex space-x-2">
-                <Button variant="outline" className="flex-1">
-                  <Heart className="mr-2 h-4 w-4" />
-                  Wishlist
+                <Button
+                  variant={inWishlist ? "default" : "outline"}
+                  className={`flex-1 ${inWishlist ? "bg-red-500 hover:bg-red-600 text-white" : ""}`}
+                  onClick={handleWishlistToggle}
+                >
+                  {inWishlist ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      In Wishlist
+                    </>
+                  ) : (
+                    <>
+                      <Heart className="mr-2 h-4 w-4" />
+                      Add to Wishlist
+                    </>
+                  )}
                 </Button>
-                <Button variant="outline" className="flex-1">
+                <Button variant="outline" className="flex-1" onClick={() => shareProduct(laptop)}>
                   <Share2 className="mr-2 h-4 w-4" />
                   Share
                 </Button>

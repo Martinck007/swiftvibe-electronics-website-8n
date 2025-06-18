@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Menu, Search, ShoppingCart, User, X, Settings, Mail } from "lucide-react"
+import { Menu, Search, ShoppingCart, User, X, Settings, Mail, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Card, CardContent } from "@/components/ui/card"
 import { CheckoutModal } from "./checkout-modal"
+import { WishlistModal } from "./wishlist-modal"
 
 interface CartItem {
   id: number
@@ -27,10 +28,12 @@ export function Header() {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [wishlistCount, setWishlistCount] = useState(0)
   const [isSignedIn, setIsSignedIn] = useState(false)
   const [userEmail, setUserEmail] = useState("")
   const [userPassword, setUserPassword] = useState("")
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
+  const [isCartOpen, setIsCartOpen] = useState(false)
 
   const navigation = [
     { name: "Laptops", href: "/laptops" },
@@ -40,29 +43,57 @@ export function Header() {
     { name: "About", href: "/about" },
   ]
 
-  // Load cart from localStorage on mount
+  // Load cart and wishlist from localStorage on mount
   useEffect(() => {
-    const savedCart = localStorage.getItem("swift-vibe-cart")
-    if (savedCart) {
-      try {
-        setCartItems(JSON.parse(savedCart))
-      } catch (error) {
-        console.error("Failed to load cart:", error)
+    const loadData = () => {
+      // Load cart
+      const savedCart = localStorage.getItem("swift-vibe-cart")
+      if (savedCart) {
+        try {
+          setCartItems(JSON.parse(savedCart))
+        } catch (error) {
+          console.error("Failed to load cart:", error)
+        }
+      }
+
+      // Load wishlist count
+      const savedWishlist = localStorage.getItem("swift-vibe-wishlist")
+      if (savedWishlist) {
+        try {
+          const wishlist = JSON.parse(savedWishlist)
+          setWishlistCount(wishlist.length)
+        } catch (error) {
+          console.error("Failed to load wishlist:", error)
+        }
       }
     }
 
-    // Listen for cart updates from other components
+    loadData()
+
+    // Listen for cart updates
     const handleCartUpdate = (event: CustomEvent) => {
       setCartItems(event.detail)
     }
 
+    // Listen for wishlist updates
+    const handleWishlistUpdate = (event: CustomEvent) => {
+      setWishlistCount(event.detail.length)
+    }
+
     window.addEventListener("cartUpdated" as any, handleCartUpdate)
-    return () => window.removeEventListener("cartUpdated" as any, handleCartUpdate)
+    window.addEventListener("wishlistUpdated" as any, handleWishlistUpdate)
+
+    return () => {
+      window.removeEventListener("cartUpdated" as any, handleCartUpdate)
+      window.removeEventListener("wishlistUpdated" as any, handleWishlistUpdate)
+    }
   }, [])
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem("swift-vibe-cart", JSON.stringify(cartItems))
+    // Dispatch update event
+    window.dispatchEvent(new CustomEvent("cartUpdated", { detail: cartItems }))
   }, [cartItems])
 
   const handleSearch = (e: React.FormEvent) => {
@@ -113,6 +144,10 @@ export function Header() {
       .toLocaleString()
   }
 
+  const getTotalItems = () => {
+    return cartItems.reduce((total, item) => total + item.quantity, 0)
+  }
+
   const handleGoogleSignIn = () => {
     // Simulate Google OAuth
     setIsSignedIn(true)
@@ -128,6 +163,11 @@ export function Header() {
       setUserEmail("")
       setUserPassword("")
     }
+  }
+
+  const handleCheckout = () => {
+    setIsCartOpen(false) // Close cart sheet
+    setIsCheckoutOpen(true) // Open checkout modal
   }
 
   return (
@@ -195,6 +235,18 @@ export function Header() {
               </form>
             </DialogContent>
           </Dialog>
+
+          {/* Wishlist */}
+          <WishlistModal>
+            <Button variant="ghost" size="icon" className="relative">
+              <Heart className="h-5 w-5" />
+              {wishlistCount > 0 && (
+                <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500">
+                  {wishlistCount}
+                </Badge>
+              )}
+            </Button>
+          </WishlistModal>
 
           {/* User Account */}
           <Dialog>
@@ -282,13 +334,13 @@ export function Header() {
           </Dialog>
 
           {/* Shopping Cart */}
-          <Sheet>
+          <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="relative">
                 <ShoppingCart className="h-5 w-5" />
-                {cartItems.length > 0 && (
+                {getTotalItems() > 0 && (
                   <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    {cartItems.reduce((total, item) => total + item.quantity, 0)}
+                    {getTotalItems()}
                   </Badge>
                 )}
               </Button>
@@ -302,7 +354,13 @@ export function Header() {
 
                 <div className="flex-1 overflow-auto space-y-4">
                   {cartItems.length === 0 ? (
-                    <p className="text-gray-500 text-center py-8">Your cart is empty</p>
+                    <div className="text-center py-8">
+                      <ShoppingCart className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">Your cart is empty</p>
+                      <Button className="mt-4" onClick={() => setIsCartOpen(false)}>
+                        Continue Shopping
+                      </Button>
+                    </div>
                   ) : (
                     cartItems.map((item) => (
                       <Card key={item.id}>
@@ -354,7 +412,7 @@ export function Header() {
                     <div className="flex justify-between items-center">
                       <span className="font-semibold">Total: ZMW {getTotalPrice()}</span>
                     </div>
-                    <Button className="w-full" onClick={() => setIsCheckoutOpen(true)}>
+                    <Button className="w-full bg-primary hover:bg-primary/90" onClick={handleCheckout}>
                       Proceed to Checkout
                     </Button>
                   </div>
@@ -401,14 +459,22 @@ export function Header() {
                 <Button variant="ghost" size="icon">
                   <Search className="h-5 w-5" />
                 </Button>
+                <Button variant="ghost" size="icon" className="relative">
+                  <Heart className="h-5 w-5" />
+                  {wishlistCount > 0 && (
+                    <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500">
+                      {wishlistCount}
+                    </Badge>
+                  )}
+                </Button>
                 <Button variant="ghost" size="icon">
                   <User className="h-5 w-5" />
                 </Button>
                 <Button variant="ghost" size="icon" className="relative">
                   <ShoppingCart className="h-5 w-5" />
-                  {cartItems.length > 0 && (
+                  {getTotalItems() > 0 && (
                     <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                      {cartItems.reduce((total, item) => total + item.quantity, 0)}
+                      {getTotalItems()}
                     </Badge>
                   )}
                 </Button>
@@ -417,6 +483,8 @@ export function Header() {
           </SheetContent>
         </Sheet>
       </div>
+
+      {/* Checkout Modal */}
       <CheckoutModal
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
