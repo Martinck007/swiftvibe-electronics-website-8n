@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Menu, Search, ShoppingCart, User, X } from "lucide-react"
+import { Menu, Search, ShoppingCart, User, X, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
@@ -104,6 +104,13 @@ export function Header() {
 
         {/* Desktop Actions */}
         <div className="hidden md:flex items-center space-x-4">
+          {/* Admin Link */}
+          <Link href="/admin">
+            <Button variant="ghost" size="icon" title="Admin Dashboard">
+              <Settings className="h-5 w-5" />
+            </Button>
+          </Link>
+
           {/* Search */}
           <Dialog>
             <DialogTrigger asChild>
@@ -142,6 +149,12 @@ export function Header() {
               {isSignedIn ? (
                 <div className="space-y-4">
                   <p>Welcome back!</p>
+                  <Link href="/admin">
+                    <Button variant="outline" className="w-full mb-2">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Admin Dashboard
+                    </Button>
+                  </Link>
                   <Button onClick={handleSignOut} variant="outline" className="w-full">
                     Sign Out
                   </Button>
@@ -254,6 +267,17 @@ export function Header() {
                   {item.name}
                 </Link>
               ))}
+
+              {/* Admin Link in Mobile Menu */}
+              <Link
+                href="/admin"
+                className="text-lg font-medium text-gray-700 hover:text-primary transition-colors flex items-center"
+                onClick={() => setIsOpen(false)}
+              >
+                <Settings className="mr-2 h-5 w-5" />
+                Admin Dashboard
+              </Link>
+
               <div className="flex items-center space-x-4 pt-4 border-t">
                 <Button variant="ghost" size="icon">
                   <Search className="h-5 w-5" />
