@@ -5,6 +5,7 @@ import { Star, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { useState, useEffect } from "react"
 
 const products = [
   {
@@ -58,6 +59,22 @@ const products = [
 ]
 
 export function FeaturedProducts() {
+  const [laptops, setLaptops] = useState(products)
+
+  // Load laptops from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("swift-vibe-laptops")
+    if (saved) {
+      try {
+        const savedLaptops = JSON.parse(saved)
+        // Take first 4 laptops for featured section
+        setLaptops(savedLaptops.slice(0, 4))
+      } catch (error) {
+        console.error("Failed to load saved laptops:", error)
+      }
+    }
+  }, [])
+
   return (
     <section className="py-16 bg-white">
       <div className="container px-4 sm:px-6 lg:px-8">
@@ -67,14 +84,14 @@ export function FeaturedProducts() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {products.map((product) => (
+          {laptops.map((product) => (
             <Card
               key={product.id}
               className="group overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300"
             >
               <div className="relative overflow-hidden">
                 <Image
-                  src={product.image || "/placeholder.svg"}
+                  src={product.images?.[0] || product.image || "/placeholder.svg"}
                   alt={product.name}
                   width={400}
                   height={300}

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ImageUpload } from "./image-upload"
+import { MultiImageUpload } from "./multi-image-upload"
 import { Plus, Edit, Trash2, Save, X } from "lucide-react"
 
 interface Laptop {
@@ -16,7 +16,7 @@ interface Laptop {
   brand: string
   price: string
   originalPrice?: string
-  image: string
+  images: string[] // Changed from image to images array
   rating: number
   reviews: number
   badge: string
@@ -38,7 +38,7 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
     brand: "",
     price: "",
     originalPrice: "",
-    image: "",
+    images: [],
     rating: 4.5,
     reviews: 0,
     badge: "New",
@@ -71,7 +71,7 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
       brand: formData.brand!,
       price: formData.price!,
       originalPrice: formData.originalPrice,
-      image: formData.image || "/placeholder.svg?height=300&width=400",
+      images: formData.images || ["/placeholder.svg?height=300&width=400"],
       rating: formData.rating || 4.5,
       reviews: formData.reviews || 0,
       badge: formData.badge || "New",
@@ -97,6 +97,7 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
     setFormData({
       ...laptop,
       specs: laptop.specs || [],
+      images: laptop.images || [laptop.images?.[0] || "/placeholder.svg?height=300&width=400"], // Handle legacy single image
     })
     setIsOpen(true)
   }
@@ -115,7 +116,7 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
       brand: "",
       price: "",
       originalPrice: "",
-      image: "",
+      images: [],
       rating: 4.5,
       reviews: 0,
       badge: "New",
@@ -141,18 +142,19 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
               Add New Laptop
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingLaptop ? "Edit Laptop" : "Add New Laptop"}</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-6">
-              {/* Image Upload */}
+              {/* Multiple Images Upload */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Laptop Image</label>
-                <ImageUpload
-                  currentImage={formData.image}
-                  onImageUpload={(imageUrl) => handleInputChange("image", imageUrl)}
+                <label className="block text-sm font-medium text-gray-700 mb-2">Laptop Images (Up to 4 photos)</label>
+                <MultiImageUpload
+                  currentImages={formData.images || []}
+                  onImagesUpdate={(images) => handleInputChange("images", images)}
+                  maxImages={4}
                 />
               </div>
 
@@ -284,9 +286,16 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
         {laptops.map((laptop) => (
           <Card key={laptop.id} className="overflow-hidden">
             <div className="relative">
-              <img src={laptop.image || "/placeholder.svg"} alt={laptop.name} className="w-full h-48 object-cover" />
+              <img
+                src={laptop.images?.[0] || "/placeholder.svg"}
+                alt={laptop.name}
+                className="w-full h-48 object-cover"
+              />
               <Badge className="absolute top-2 left-2">{laptop.badge}</Badge>
-              {!laptop.inStock && <Badge className="absolute top-2 right-2 bg-red-500">Out of Stock</Badge>}
+              {laptop.images && laptop.images.length > 1 && (
+                <Badge className="absolute top-2 right-2 bg-blue-500">+{laptop.images.length - 1} more</Badge>
+              )}
+              {!laptop.inStock && <Badge className="absolute bottom-2 right-2 bg-red-500">Out of Stock</Badge>}
             </div>
             <CardContent className="p-4">
               <div className="mb-2">

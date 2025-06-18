@@ -17,6 +17,7 @@ interface LaptopData {
   price: string
   originalPrice?: string
   image: string
+  images?: string[]
   rating: number
   reviews: number
   badge: string
@@ -99,6 +100,7 @@ export default function LaptopsPage() {
       price: "ZMW 17,800",
       originalPrice: "ZMW 19,500",
       image: "/placeholder.svg?height=300&width=400",
+      images: ["/placeholder.svg?height=300&width=400", "/placeholder.svg?height=300&width=400"],
       rating: 4.5,
       reviews: 92,
       badge: "2-in-1",
@@ -235,7 +237,7 @@ export default function LaptopsPage() {
                 >
                   <div className="relative overflow-hidden">
                     <img
-                      src={laptop.image || "/placeholder.svg"}
+                      src={laptop.images?.[0] || laptop.image || "/placeholder.svg"}
                       alt={laptop.name}
                       className="h-48 w-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
@@ -251,6 +253,9 @@ export default function LaptopsPage() {
                       {laptop.badge}
                     </Badge>
                     {!laptop.inStock && <Badge className="absolute top-3 right-3 bg-red-500">Out of Stock</Badge>}
+                    {laptop.images && laptop.images.length > 1 && (
+                      <Badge className="absolute top-3 right-3 bg-blue-500">+{laptop.images.length - 1} more</Badge>
+                    )}
                   </div>
 
                   <CardContent className="p-4">

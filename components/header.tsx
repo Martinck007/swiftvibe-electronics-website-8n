@@ -5,13 +5,14 @@ import type React from "react"
 import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Menu, Search, ShoppingCart, User, X, Settings } from "lucide-react"
+import { Menu, Search, ShoppingCart, User, X, Settings, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Card, CardContent } from "@/components/ui/card"
+import { CheckoutModal } from "./checkout-modal"
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false)
@@ -23,6 +24,7 @@ export function Header() {
   const [isSignedIn, setIsSignedIn] = useState(false)
   const [userEmail, setUserEmail] = useState("")
   const [userPassword, setUserPassword] = useState("")
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
 
   const navigation = [
     { name: "Laptops", href: "/laptops" },
@@ -67,6 +69,23 @@ export function Header() {
         return total + price * item.quantity
       }, 0)
       .toLocaleString()
+  }
+
+  const handleGoogleSignIn = () => {
+    // Simulate Google OAuth
+    setIsSignedIn(true)
+    setUserEmail("user@gmail.com")
+    alert("Successfully signed in with Google!")
+  }
+
+  const handleSignUp = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (userEmail && userPassword) {
+      setIsSignedIn(true)
+      alert(`Account created successfully! Welcome, ${userEmail}!`)
+      setUserEmail("")
+      setUserPassword("")
+    }
   }
 
   return (
@@ -148,7 +167,7 @@ export function Header() {
               </DialogHeader>
               {isSignedIn ? (
                 <div className="space-y-4">
-                  <p>Welcome back!</p>
+                  <p>Welcome back, {userEmail || "User"}!</p>
                   <Link href="/admin">
                     <Button variant="outline" className="w-full mb-2">
                       <Settings className="mr-2 h-4 w-4" />
@@ -160,31 +179,62 @@ export function Header() {
                   </Button>
                 </div>
               ) : (
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <Input
-                    type="email"
-                    placeholder="Email"
-                    value={userEmail}
-                    onChange={(e) => setUserEmail(e.target.value)}
-                    required
-                  />
-                  <Input
-                    type="password"
-                    placeholder="Password"
-                    value={userPassword}
-                    onChange={(e) => setUserPassword(e.target.value)}
-                    required
-                  />
-                  <Button type="submit" className="w-full">
-                    Sign In
-                  </Button>
-                  <p className="text-sm text-gray-600 text-center">
-                    Don't have an account?{" "}
-                    <Button variant="link" className="p-0">
-                      Sign up
+                <div className="space-y-4">
+                  <form onSubmit={handleSignIn} className="space-y-4">
+                    <Input
+                      type="email"
+                      placeholder="Email"
+                      value={userEmail}
+                      onChange={(e) => setUserEmail(e.target.value)}
+                      required
+                    />
+                    <Input
+                      type="password"
+                      placeholder="Password"
+                      value={userPassword}
+                      onChange={(e) => setUserPassword(e.target.value)}
+                      required
+                    />
+                    <Button type="submit" className="w-full">
+                      Sign In
                     </Button>
-                  </p>
-                </form>
+                  </form>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-white px-2 text-gray-500">Or</span>
+                    </div>
+                  </div>
+
+                  <Button onClick={handleGoogleSignIn} variant="outline" className="w-full">
+                    <Mail className="mr-2 h-4 w-4" />
+                    Continue with Google
+                  </Button>
+
+                  <form onSubmit={handleSignUp} className="space-y-4 pt-4 border-t">
+                    <p className="text-sm text-center text-gray-600">Don't have an account?</p>
+                    <Input
+                      type="email"
+                      placeholder="Email for new account"
+                      value={userEmail}
+                      onChange={(e) => setUserEmail(e.target.value)}
+                      required
+                    />
+                    <Input
+                      type="password"
+                      placeholder="Create password"
+                      value={userPassword}
+                      onChange={(e) => setUserPassword(e.target.value)}
+                      required
+                    />
+                    <Button type="submit" variant="outline" className="w-full">
+                      Create Account
+                    </Button>
+                  </form>
+                </div>
               )}
             </DialogContent>
           </Dialog>
@@ -236,7 +286,9 @@ export function Header() {
                     <div className="flex justify-between items-center">
                       <span className="font-semibold">Total: ZMW {getTotalPrice()}</span>
                     </div>
-                    <Button className="w-full">Proceed to Checkout</Button>
+                    <Button className="w-full" onClick={() => setIsCheckoutOpen(true)}>
+                      Proceed to Checkout
+                    </Button>
                   </div>
                 )}
               </div>
@@ -298,6 +350,12 @@ export function Header() {
           </SheetContent>
         </Sheet>
       </div>
+      <CheckoutModal
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        cartItems={cartItems}
+        onOrderComplete={() => setCartItems([])}
+      />
     </header>
   )
 }
