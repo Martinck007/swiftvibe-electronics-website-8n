@@ -109,11 +109,11 @@ export function Footer() {
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="h-5 w-5 text-gray-400" />
-                <span className="text-gray-400">+260 XXX XXX XXX</span>
+                <span className="text-gray-400">+260 775523495/ 0775563645</span>
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="h-5 w-5 text-gray-400" />
-                <span className="text-gray-400">info@swiftvibe.zm</span>
+                <span className="text-gray-400">info@swiftvibe.co.zm</span>
               </div>
             </div>
           </div>
@@ -121,7 +121,7 @@ export function Footer() {
 
         <div className="border-t border-gray-800 mt-8 pt-8 text-center">
           <p className="text-gray-400">
-            © 2024 Swift-Vibe Electronics. All rights reserved. |
+            © 2025 Swift-Vibe Electronics. All rights reserved. |
             <Link href="/privacy" className="hover:text-white transition-colors ml-1">
               Privacy Policy
             </Link>{" "}
