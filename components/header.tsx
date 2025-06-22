@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Menu, Search, ShoppingCart, User, X, Settings, Mail, Heart } from "lucide-react"
+import { Menu, Search, ShoppingCart, UserIcon, X, Mail, Heart, LogOut, UserCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Card, CardContent } from "@/components/ui/card"
 import { CheckoutModal } from "./checkout-modal"
 import { WishlistModal } from "./wishlist-modal"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Label } from "@/components/ui/label"
 
 interface CartItem {
   id: number
@@ -24,16 +26,33 @@ interface CartItem {
   image?: string
 }
 
+interface UserSession {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  dateJoined: string
+}
+
 export function Header() {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [wishlistCount, setWishlistCount] = useState(0)
   const [isSignedIn, setIsSignedIn] = useState(false)
-  const [userEmail, setUserEmail] = useState("")
-  const [userPassword, setUserPassword] = useState("")
+  const [currentUser, setCurrentUser] = useState<UserSession | null>(null)
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
   const [isCartOpen, setIsCartOpen] = useState(false)
+  const [isAuthOpen, setIsAuthOpen] = useState(false)
+
+  // Auth form states
+  const [signInEmail, setSignInEmail] = useState("")
+  const [signInPassword, setSignInPassword] = useState("")
+  const [signUpEmail, setSignUpEmail] = useState("")
+  const [signUpPassword, setSignUpPassword] = useState("")
+  const [signUpFirstName, setSignUpFirstName] = useState("")
+  const [signUpLastName, setSignUpLastName] = useState("")
+  const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("")
 
   const navigation = [
     { name: "Laptops", href: "/laptops" },
@@ -43,9 +62,22 @@ export function Header() {
     { name: "About", href: "/about" },
   ]
 
-  // Load cart and wishlist from localStorage on mount
+  // Load user session and cart data on mount
   useEffect(() => {
     const loadData = () => {
+      // Load user session
+      const savedUser = localStorage.getItem("swift-vibe-user")
+      if (savedUser) {
+        try {
+          const user = JSON.parse(savedUser)
+          setCurrentUser(user)
+          setIsSignedIn(true)
+        } catch (error) {
+          console.error("Failed to load user session:", error)
+          localStorage.removeItem("swift-vibe-user")
+        }
+      }
+
       // Load cart
       const savedCart = localStorage.getItem("swift-vibe-cart")
       if (savedCart) {
@@ -107,17 +139,129 @@ export function Header() {
 
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault()
-    if (userEmail && userPassword) {
-      setIsSignedIn(true)
-      alert(`Welcome back, ${userEmail}!`)
-      setUserEmail("")
-      setUserPassword("")
+
+    if (!signInEmail || !signInPassword) {
+      alert("Please fill in all fields")
+      return
     }
+
+    // Get registered users
+    const registeredUsers = JSON.parse(localStorage.getItem("swift-vibe-users") || "[]")
+
+    // Find user
+    const user = registeredUsers.find((u: any) => u.email === signInEmail && u.password === signInPassword)
+
+    if (user) {
+      const userSession = {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        dateJoined: user.dateJoined,
+      }
+
+      setCurrentUser(userSession)
+      setIsSignedIn(true)
+      localStorage.setItem("swift-vibe-user", JSON.stringify(userSession))
+
+      alert(`Welcome back, ${user.firstName}!`)
+      setIsAuthOpen(false)
+
+      // Clear form
+      setSignInEmail("")
+      setSignInPassword("")
+    } else {
+      alert("Invalid email or password")
+    }
+  }
+
+  const handleSignUp = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!signUpEmail || !signUpPassword || !signUpFirstName || !signUpLastName || !signUpConfirmPassword) {
+      alert("Please fill in all fields")
+      return
+    }
+
+    if (signUpPassword !== signUpConfirmPassword) {
+      alert("Passwords do not match")
+      return
+    }
+
+    if (signUpPassword.length < 6) {
+      alert("Password must be at least 6 characters long")
+      return
+    }
+
+    // Get existing users
+    const existingUsers = JSON.parse(localStorage.getItem("swift-vibe-users") || "[]")
+
+    // Check if email already exists
+    if (existingUsers.some((u: any) => u.email === signUpEmail)) {
+      alert("An account with this email already exists")
+      return
+    }
+
+    // Create new user
+    const newUser = {
+      id: Date.now().toString(),
+      email: signUpEmail,
+      password: signUpPassword,
+      firstName: signUpFirstName,
+      lastName: signUpLastName,
+      dateJoined: new Date().toISOString(),
+    }
+
+    // Save user
+    existingUsers.push(newUser)
+    localStorage.setItem("swift-vibe-users", JSON.stringify(existingUsers))
+
+    // Create session
+    const userSession = {
+      id: newUser.id,
+      email: newUser.email,
+      firstName: newUser.firstName,
+      lastName: newUser.lastName,
+      dateJoined: newUser.dateJoined,
+    }
+
+    setCurrentUser(userSession)
+    setIsSignedIn(true)
+    localStorage.setItem("swift-vibe-user", JSON.stringify(userSession))
+
+    alert(`Account created successfully! Welcome, ${newUser.firstName}!`)
+    setIsAuthOpen(false)
+
+    // Clear form
+    setSignUpEmail("")
+    setSignUpPassword("")
+    setSignUpFirstName("")
+    setSignUpLastName("")
+    setSignUpConfirmPassword("")
   }
 
   const handleSignOut = () => {
     setIsSignedIn(false)
+    setCurrentUser(null)
+    localStorage.removeItem("swift-vibe-user")
     alert("You have been signed out.")
+  }
+
+  const handleGoogleSignIn = () => {
+    // Simulate Google OAuth
+    const googleUser = {
+      id: "google_" + Date.now(),
+      email: "user@gmail.com",
+      firstName: "Google",
+      lastName: "User",
+      dateJoined: new Date().toISOString(),
+    }
+
+    setCurrentUser(googleUser)
+    setIsSignedIn(true)
+    localStorage.setItem("swift-vibe-user", JSON.stringify(googleUser))
+    alert("Successfully signed in with Google!")
+    setIsAuthOpen(false)
   }
 
   const removeFromCart = (id: number) => {
@@ -148,24 +292,12 @@ export function Header() {
     return cartItems.reduce((total, item) => total + item.quantity, 0)
   }
 
-  const handleGoogleSignIn = () => {
-    // Simulate Google OAuth
-    setIsSignedIn(true)
-    setUserEmail("user@gmail.com")
-    alert("Successfully signed in with Google!")
-  }
-
-  const handleSignUp = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (userEmail && userPassword) {
-      setIsSignedIn(true)
-      alert(`Account created successfully! Welcome, ${userEmail}!`)
-      setUserEmail("")
-      setUserPassword("")
-    }
-  }
-
   const handleCheckout = () => {
+    if (!isSignedIn) {
+      alert("Please sign in to proceed with checkout")
+      setIsAuthOpen(true)
+      return
+    }
     setIsCartOpen(false) // Close cart sheet
     setIsCheckoutOpen(true) // Open checkout modal
   }
@@ -205,13 +337,6 @@ export function Header() {
 
         {/* Desktop Actions */}
         <div className="hidden md:flex items-center space-x-4">
-          {/* Admin Link */}
-          <Link href="/admin">
-            <Button variant="ghost" size="icon" title="Admin Dashboard">
-              <Settings className="h-5 w-5" />
-            </Button>
-          </Link>
-
           {/* Search */}
           <Dialog>
             <DialogTrigger asChild>
@@ -249,86 +374,150 @@ export function Header() {
           </WishlistModal>
 
           {/* User Account */}
-          <Dialog>
+          <Dialog open={isAuthOpen} onOpenChange={setIsAuthOpen}>
             <DialogTrigger asChild>
               <Button variant="ghost" size="icon">
-                <User className="h-5 w-5" />
+                <UserIcon className="h-5 w-5" />
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>{isSignedIn ? "Account" : "Sign In"}</DialogTitle>
+                <DialogTitle>{isSignedIn ? "My Account" : "Sign In to Your Account"}</DialogTitle>
               </DialogHeader>
               {isSignedIn ? (
                 <div className="space-y-4">
-                  <p>Welcome back, {userEmail || "User"}!</p>
-                  <Link href="/admin">
-                    <Button variant="outline" className="w-full mb-2">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Admin Dashboard
-                    </Button>
-                  </Link>
+                  <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
+                    <UserCircle className="h-12 w-12 text-gray-400" />
+                    <div>
+                      <p className="font-medium">
+                        {currentUser?.firstName} {currentUser?.lastName}
+                      </p>
+                      <p className="text-sm text-gray-600">{currentUser?.email}</p>
+                      <p className="text-xs text-gray-500">
+                        Member since{" "}
+                        {currentUser?.dateJoined ? new Date(currentUser.dateJoined).toLocaleDateString() : "N/A"}
+                      </p>
+                    </div>
+                  </div>
                   <Button onClick={handleSignOut} variant="outline" className="w-full">
+                    <LogOut className="mr-2 h-4 w-4" />
                     Sign Out
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <form onSubmit={handleSignIn} className="space-y-4">
-                    <Input
-                      type="email"
-                      placeholder="Email"
-                      value={userEmail}
-                      onChange={(e) => setUserEmail(e.target.value)}
-                      required
-                    />
-                    <Input
-                      type="password"
-                      placeholder="Password"
-                      value={userPassword}
-                      onChange={(e) => setUserPassword(e.target.value)}
-                      required
-                    />
-                    <Button type="submit" className="w-full">
-                      Sign In
-                    </Button>
-                  </form>
+                <Tabs defaultValue="signin" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="signin">Sign In</TabsTrigger>
+                    <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                  </TabsList>
 
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
+                  <TabsContent value="signin" className="space-y-4">
+                    <form onSubmit={handleSignIn} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="signin-email">Email</Label>
+                        <Input
+                          id="signin-email"
+                          type="email"
+                          placeholder="Enter your email"
+                          value={signInEmail}
+                          onChange={(e) => setSignInEmail(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="signin-password">Password</Label>
+                        <Input
+                          id="signin-password"
+                          type="password"
+                          placeholder="Enter your password"
+                          value={signInPassword}
+                          onChange={(e) => setSignInPassword(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <Button type="submit" className="w-full">
+                        Sign In
+                      </Button>
+                    </form>
+
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-white px-2 text-gray-500">Or</span>
+                      </div>
                     </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white px-2 text-gray-500">Or</span>
-                    </div>
-                  </div>
 
-                  <Button onClick={handleGoogleSignIn} variant="outline" className="w-full">
-                    <Mail className="mr-2 h-4 w-4" />
-                    Continue with Google
-                  </Button>
-
-                  <form onSubmit={handleSignUp} className="space-y-4 pt-4 border-t">
-                    <p className="text-sm text-center text-gray-600">Don't have an account?</p>
-                    <Input
-                      type="email"
-                      placeholder="Email for new account"
-                      value={userEmail}
-                      onChange={(e) => setUserEmail(e.target.value)}
-                      required
-                    />
-                    <Input
-                      type="password"
-                      placeholder="Create password"
-                      value={userPassword}
-                      onChange={(e) => setUserPassword(e.target.value)}
-                      required
-                    />
-                    <Button type="submit" variant="outline" className="w-full">
-                      Create Account
+                    <Button onClick={handleGoogleSignIn} variant="outline" className="w-full">
+                      <Mail className="mr-2 h-4 w-4" />
+                      Continue with Google
                     </Button>
-                  </form>
-                </div>
+                  </TabsContent>
+
+                  <TabsContent value="signup" className="space-y-4">
+                    <form onSubmit={handleSignUp} className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-firstname">First Name</Label>
+                          <Input
+                            id="signup-firstname"
+                            placeholder="First name"
+                            value={signUpFirstName}
+                            onChange={(e) => setSignUpFirstName(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-lastname">Last Name</Label>
+                          <Input
+                            id="signup-lastname"
+                            placeholder="Last name"
+                            value={signUpLastName}
+                            onChange={(e) => setSignUpLastName(e.target.value)}
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-email">Email</Label>
+                        <Input
+                          id="signup-email"
+                          type="email"
+                          placeholder="Enter your email"
+                          value={signUpEmail}
+                          onChange={(e) => setSignUpEmail(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-password">Password</Label>
+                        <Input
+                          id="signup-password"
+                          type="password"
+                          placeholder="Create a password (min 6 characters)"
+                          value={signUpPassword}
+                          onChange={(e) => setSignUpPassword(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-confirm">Confirm Password</Label>
+                        <Input
+                          id="signup-confirm"
+                          type="password"
+                          placeholder="Confirm your password"
+                          value={signUpConfirmPassword}
+                          onChange={(e) => setSignUpConfirmPassword(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <Button type="submit" className="w-full">
+                        Create Account
+                      </Button>
+                    </form>
+                  </TabsContent>
+                </Tabs>
               )}
             </DialogContent>
           </Dialog>
@@ -446,15 +635,6 @@ export function Header() {
                 </Link>
               ))}
 
-              <Link
-                href="/admin"
-                className="text-lg font-medium text-gray-700 hover:text-primary transition-colors flex items-center"
-                onClick={() => setIsOpen(false)}
-              >
-                <Settings className="mr-2 h-5 w-5" />
-                Admin Dashboard
-              </Link>
-
               <div className="flex items-center space-x-4 pt-4 border-t">
                 <Button variant="ghost" size="icon">
                   <Search className="h-5 w-5" />
@@ -467,8 +647,8 @@ export function Header() {
                     </Badge>
                   )}
                 </Button>
-                <Button variant="ghost" size="icon">
-                  <User className="h-5 w-5" />
+                <Button variant="ghost" size="icon" onClick={() => setIsAuthOpen(true)}>
+                  <UserIcon className="h-5 w-5" />
                 </Button>
                 <Button variant="ghost" size="icon" className="relative">
                   <ShoppingCart className="h-5 w-5" />
@@ -490,6 +670,7 @@ export function Header() {
         onClose={() => setIsCheckoutOpen(false)}
         cartItems={cartItems}
         onOrderComplete={() => setCartItems([])}
+        currentUser={currentUser}
       />
     </header>
   )

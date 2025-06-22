@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,100 +22,96 @@ interface CheckoutModalProps {
   onClose: () => void
   cartItems: CartItem[]
   onOrderComplete: () => void
+  /*  Optional – if you already have a signed-in user you can
+      pass their basic data so the form starts pre-filled          */
+  currentUser?: {
+    firstName?: string
+    lastName?: string
+    email?: string
+  } | null
 }
 
-export function CheckoutModal({ isOpen, onClose, cartItems, onOrderComplete }: CheckoutModalProps) {
-  const [step, setStep] = useState(1) // 1: Details, 2: Payment, 3: Confirmation
-  const [paymentMethod, setPaymentMethod] = useState("")
-  const [orderData, setOrderData] = useState({
-    // Customer Details
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
+export function CheckoutModal({ isOpen, onClose, cartItems, onOrderComplete, currentUser = null }: CheckoutModalProps) {
+  const [step, setStep] = useState(1) // 1: details, 2: payment, 3: confirmation
+  const [paymentMethod, setPaymentMethod] = useState<"" | "card" | "mobile">("")
 
-    // Delivery Address
+  const [orderData, setOrderData] = useState({
+    // customer details
+    firstName: currentUser?.firstName ?? "",
+    lastName: currentUser?.lastName ?? "",
+    email: currentUser?.email ?? "",
+    phone: "",
+    // address
     address: "",
     city: "Lusaka",
     area: "",
-
-    // Payment Details
+    // card
     cardNumber: "",
     expiryDate: "",
     cvv: "",
     cardName: "",
-
-    // Mobile Money
+    // mobile money
     mobileNumber: "",
     mobileProvider: "",
-
-    // Order Notes
+    // misc
     notes: "",
   })
 
-  const getTotalPrice = () => {
-    return cartItems.reduce((total, item) => {
-      const price = Number.parseInt(item.price.replace(/[^\d]/g, ""))
-      return total + price * item.quantity
-    }, 0)
-  }
+  /* ---------- helpers ---------- */
 
-  const handleInputChange = (field: string, value: string) => {
-    setOrderData((prev) => ({ ...prev, [field]: value }))
-  }
+  const getTotalPrice = () => cartItems.reduce((t, i) => t + Number(i.price.replace(/[^\d]/g, "")) * i.quantity, 0)
 
-  const handleNextStep = () => {
+  const handleChange = (field: string, v: string) => setOrderData((p) => ({ ...p, [field]: v }))
+
+  const nextStep = () => {
     if (step === 1) {
-      // Validate customer details
-      if (!orderData.firstName || !orderData.lastName || !orderData.email || !orderData.phone || !orderData.address) {
-        alert("Please fill in all required fields")
+      // very light validation
+      const { firstName, lastName, email, phone, address } = orderData
+      if (!firstName || !lastName || !email || !phone || !address) {
+        alert("Please fill in all required fields.")
         return
       }
       setStep(2)
     } else if (step === 2) {
-      // Validate payment details
       if (!paymentMethod) {
-        alert("Please select a payment method")
+        alert("Select a payment method.")
         return
       }
-
-      if (paymentMethod === "card") {
-        if (!orderData.cardNumber || !orderData.expiryDate || !orderData.cvv || !orderData.cardName) {
-          alert("Please fill in all card details")
-          return
-        }
-      } else if (paymentMethod === "mobile") {
-        if (!orderData.mobileNumber || !orderData.mobileProvider) {
-          alert("Please fill in mobile money details")
-          return
-        }
+      if (
+        paymentMethod === "card" &&
+        (!orderData.cardNumber || !orderData.expiryDate || !orderData.cvv || !orderData.cardName)
+      ) {
+        alert("Please complete card information.")
+        return
       }
-
-      // Process payment (simulate)
+      if (paymentMethod === "mobile" && (!orderData.mobileNumber || !orderData.mobileProvider)) {
+        alert("Provide mobile-money details.")
+        return
+      }
       processPayment()
     }
   }
 
   const processPayment = () => {
-    // Simulate payment processing
+    // fake delay
     setTimeout(() => {
       setStep(3)
-      // Clear cart after successful order
+      // finish & reset after short pause
       setTimeout(() => {
         onOrderComplete()
         resetForm()
         onClose()
       }, 3000)
-    }, 2000)
+    }, 1500)
   }
 
   const resetForm = () => {
     setStep(1)
     setPaymentMethod("")
     setOrderData({
-      firstName: "",
-      lastName: "",
-      email: "",
+      firstName: currentUser?.firstName ?? "",
+      lastName: currentUser?.lastName ?? "",
+      email: currentUser?.email ?? "",
       phone: "",
       address: "",
       city: "Lusaka",
@@ -130,33 +126,29 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderComplete }: C
     })
   }
 
-  const handleClose = () => {
-    resetForm()
-    onClose()
-  }
+  /* ---------- render ---------- */
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
-            <span>Checkout</span>
-            <Badge variant="secondary">Step {step} of 3</Badge>
+          <DialogTitle className="flex items-center gap-2">
+            Checkout <Badge variant="secondary">Step {step} of 3</Badge>
           </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Order Summary - Always visible */}
-          <div className="lg:col-span-1">
+          {/* order summary */}
+          <aside className="lg:col-span-1">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {cartItems.map((item) => (
-                  <div key={item.id} className="flex items-center space-x-3">
+                  <div key={item.id} className="flex items-center gap-3">
                     <img
-                      src={item.image || "/placeholder.svg"}
+                      src={item.image || "/placeholder.svg?height=48&width=48&query=laptop"}
                       alt={item.name}
                       className="w-12 h-12 object-cover rounded"
                     />
@@ -169,94 +161,92 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderComplete }: C
                 ))}
 
                 <div className="border-t pt-4">
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between">
                     <span className="font-bold">Total:</span>
                     <span className="font-bold text-lg">ZMW {getTotalPrice().toLocaleString()}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </aside>
 
-          {/* Main Content */}
-          <div className="lg:col-span-2">
+          {/* main panel */}
+          <section className="lg:col-span-2 space-y-6">
             {step === 1 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Customer & Delivery Details</CardTitle>
+                  <CardTitle>Customer &amp; Delivery Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                    {/* first name */}
+                    <div className="relative">
                       <label className="block text-sm font-medium mb-1">First Name *</label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                          placeholder="John"
-                          value={orderData.firstName}
-                          onChange={(e) => handleInputChange("firstName", e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
+                      <User className="absolute left-3 top-9 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="John"
+                        value={orderData.firstName}
+                        onChange={(e) => handleChange("firstName", e.target.value)}
+                        className="pl-10"
+                      />
                     </div>
 
+                    {/* last name */}
                     <div>
                       <label className="block text-sm font-medium mb-1">Last Name *</label>
                       <Input
                         placeholder="Doe"
                         value={orderData.lastName}
-                        onChange={(e) => handleInputChange("lastName", e.target.value)}
+                        onChange={(e) => handleChange("lastName", e.target.value)}
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Email *</label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                          type="email"
-                          placeholder="john@example.com"
-                          value={orderData.email}
-                          onChange={(e) => handleInputChange("email", e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Phone *</label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                          placeholder="+260 XXX XXX XXX"
-                          value={orderData.phone}
-                          onChange={(e) => handleInputChange("phone", e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Delivery Address *</label>
+                    {/* email */}
                     <div className="relative">
-                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Textarea
-                        placeholder="Full address including street, area, and landmarks"
-                        value={orderData.address}
-                        onChange={(e) => handleInputChange("address", e.target.value)}
+                      <label className="block text-sm font-medium mb-1">Email *</label>
+                      <Mail className="absolute left-3 top-9 h-4 w-4 text-gray-400" />
+                      <Input
+                        type="email"
+                        placeholder="john@example.com"
+                        value={orderData.email}
+                        onChange={(e) => handleChange("email", e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+
+                    {/* phone */}
+                    <div className="relative">
+                      <label className="block text-sm font-medium mb-1">Phone *</label>
+                      <Phone className="absolute left-3 top-9 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="+260 ..."
+                        value={orderData.phone}
+                        onChange={(e) => handleChange("phone", e.target.value)}
                         className="pl-10"
                       />
                     </div>
                   </div>
 
+                  {/* address */}
+                  <div className="relative">
+                    <label className="block text-sm font-medium mb-1">Delivery Address *</label>
+                    <MapPin className="absolute left-3 top-9 h-4 w-4 text-gray-400" />
+                    <Textarea
+                      placeholder="Full address including street & landmarks"
+                      value={orderData.address}
+                      onChange={(e) => handleChange("address", e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+
+                  {/* city + area */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1">City</label>
                       <select
                         className="w-full p-2 border border-gray-300 rounded-md"
                         value={orderData.city}
-                        onChange={(e) => handleInputChange("city", e.target.value)}
+                        onChange={(e) => handleChange("city", e.target.value)}
                       >
                         <option value="Lusaka">Lusaka</option>
                         <option value="Kitwe">Kitwe</option>
@@ -268,19 +258,20 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderComplete }: C
                     <div>
                       <label className="block text-sm font-medium mb-1">Area/Suburb</label>
                       <Input
-                        placeholder="e.g., Kabulonga, Roma"
+                        placeholder="Kabulonga, Roma ..."
                         value={orderData.area}
-                        onChange={(e) => handleInputChange("area", e.target.value)}
+                        onChange={(e) => handleChange("area", e.target.value)}
                       />
                     </div>
                   </div>
 
+                  {/* notes */}
                   <div>
-                    <label className="block text-sm font-medium mb-1">Order Notes (Optional)</label>
+                    <label className="block text-sm font-medium mb-1">Order Notes (optional)</label>
                     <Textarea
-                      placeholder="Any special instructions for delivery..."
+                      placeholder="Special instructions for delivery..."
                       value={orderData.notes}
-                      onChange={(e) => handleInputChange("notes", e.target.value)}
+                      onChange={(e) => handleChange("notes", e.target.value)}
                     />
                   </div>
                 </CardContent>
@@ -293,121 +284,93 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderComplete }: C
                   <CardTitle>Payment Method</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Payment Method Selection */}
+                  {/* select method */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* card */}
                     <Card
-                      className={`cursor-pointer transition-all ${paymentMethod === "card" ? "ring-2 ring-primary bg-primary/5" : "hover:shadow-md"}`}
+                      className={`cursor-pointer transition-all ${
+                        paymentMethod === "card" ? "ring-2 ring-primary bg-primary/5" : "hover:shadow-md"
+                      }`}
                       onClick={() => setPaymentMethod("card")}
                     >
-                      <CardContent className="p-4">
-                        <div className="flex items-center space-x-3">
-                          <CreditCard className="h-8 w-8 text-primary" />
-                          <div>
-                            <h3 className="font-medium">Credit/Debit Card</h3>
-                            <p className="text-sm text-gray-600">Visa, Mastercard</p>
-                          </div>
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <CreditCard className="h-8 w-8 text-primary" />
+                        <div>
+                          <h3 className="font-medium">Credit/Debit Card</h3>
+                          <p className="text-sm text-gray-600">Visa, Mastercard</p>
                         </div>
                       </CardContent>
                     </Card>
 
+                    {/* mobile */}
                     <Card
-                      className={`cursor-pointer transition-all ${paymentMethod === "mobile" ? "ring-2 ring-primary bg-primary/5" : "hover:shadow-md"}`}
+                      className={`cursor-pointer transition-all ${
+                        paymentMethod === "mobile" ? "ring-2 ring-primary bg-primary/5" : "hover:shadow-md"
+                      }`}
                       onClick={() => setPaymentMethod("mobile")}
                     >
-                      <CardContent className="p-4">
-                        <div className="flex items-center space-x-3">
-                          <Smartphone className="h-8 w-8 text-green-600" />
-                          <div>
-                            <h3 className="font-medium">Mobile Money</h3>
-                            <p className="text-sm text-gray-600">Airtel Money, MTN MoMo</p>
-                          </div>
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <Smartphone className="h-8 w-8 text-green-600" />
+                        <div>
+                          <h3 className="font-medium">Mobile Money</h3>
+                          <p className="text-sm text-gray-600">Airtel Money, MTN MoMo</p>
                         </div>
                       </CardContent>
                     </Card>
                   </div>
 
-                  {/* Card Payment Form */}
+                  {/* card form */}
                   {paymentMethod === "card" && (
                     <div className="space-y-4">
                       <h3 className="font-medium">Card Details</h3>
-                      <div className="grid grid-cols-1 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Card Number *</label>
-                          <Input
-                            placeholder="1234 5678 9012 3456"
-                            value={orderData.cardNumber}
-                            onChange={(e) => handleInputChange("cardNumber", e.target.value)}
-                            maxLength={19}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Expiry Date *</label>
-                            <Input
-                              placeholder="MM/YY"
-                              value={orderData.expiryDate}
-                              onChange={(e) => handleInputChange("expiryDate", e.target.value)}
-                              maxLength={5}
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium mb-1">CVV *</label>
-                            <Input
-                              placeholder="123"
-                              value={orderData.cvv}
-                              onChange={(e) => handleInputChange("cvv", e.target.value)}
-                              maxLength={4}
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Cardholder Name *</label>
-                          <Input
-                            placeholder="John Doe"
-                            value={orderData.cardName}
-                            onChange={(e) => handleInputChange("cardName", e.target.value)}
-                          />
-                        </div>
+                      <Input
+                        placeholder="Card Number *"
+                        value={orderData.cardNumber}
+                        onChange={(e) => handleChange("cardNumber", e.target.value)}
+                        maxLength={19}
+                      />
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input
+                          placeholder="MM/YY *"
+                          value={orderData.expiryDate}
+                          onChange={(e) => handleChange("expiryDate", e.target.value)}
+                          maxLength={5}
+                        />
+                        <Input
+                          placeholder="CVV *"
+                          value={orderData.cvv}
+                          onChange={(e) => handleChange("cvv", e.target.value)}
+                          maxLength={4}
+                        />
                       </div>
+                      <Input
+                        placeholder="Cardholder Name *"
+                        value={orderData.cardName}
+                        onChange={(e) => handleChange("cardName", e.target.value)}
+                      />
                     </div>
                   )}
 
-                  {/* Mobile Money Form */}
+                  {/* mobile money form */}
                   {paymentMethod === "mobile" && (
                     <div className="space-y-4">
                       <h3 className="font-medium">Mobile Money Details</h3>
-                      <div className="grid grid-cols-1 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Mobile Provider *</label>
-                          <select
-                            className="w-full p-2 border border-gray-300 rounded-md"
-                            value={orderData.mobileProvider}
-                            onChange={(e) => handleInputChange("mobileProvider", e.target.value)}
-                          >
-                            <option value="">Select Provider</option>
-                            <option value="airtel">Airtel Money</option>
-                            <option value="mtn">MTN MoMo</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Mobile Number *</label>
-                          <Input
-                            placeholder="+260 XXX XXX XXX"
-                            value={orderData.mobileNumber}
-                            onChange={(e) => handleInputChange("mobileNumber", e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <p className="text-sm text-blue-800">
-                          <strong>Instructions:</strong> You will receive a payment prompt on your mobile device to
-                          complete the transaction.
-                        </p>
+                      <select
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                        value={orderData.mobileProvider}
+                        onChange={(e) => handleChange("mobileProvider", e.target.value)}
+                      >
+                        <option value="">Select Provider *</option>
+                        <option value="airtel">Airtel Money</option>
+                        <option value="mtn">MTN MoMo</option>
+                      </select>
+                      <Input
+                        placeholder="Mobile Number *"
+                        value={orderData.mobileNumber}
+                        onChange={(e) => handleChange("mobileNumber", e.target.value)}
+                      />
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+                        You’ll receive a payment prompt on your mobile to complete the transaction.
                       </div>
                     </div>
                   )}
@@ -419,21 +382,10 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderComplete }: C
               <Card>
                 <CardContent className="p-8 text-center">
                   <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Order Confirmed!</h2>
+                  <h2 className="text-2xl font-bold mb-2">Order Confirmed!</h2>
                   <p className="text-gray-600 mb-6">
-                    Thank you for your purchase. Your order has been successfully placed and will be processed shortly.
+                    Thank you for your purchase. We’ll reach out soon with delivery details.
                   </p>
-
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                    <h3 className="font-medium text-green-900 mb-2">What happens next?</h3>
-                    <ul className="text-sm text-green-800 space-y-1">
-                      <li>• You'll receive an order confirmation email</li>
-                      <li>• We'll contact you within 24 hours to confirm delivery</li>
-                      <li>• Your order will be delivered within 2-3 business days</li>
-                      <li>• Payment will be processed upon delivery confirmation</li>
-                    </ul>
-                  </div>
-
                   <p className="text-sm text-gray-500">
                     Order Total: <strong>ZMW {getTotalPrice().toLocaleString()}</strong>
                   </p>
@@ -441,21 +393,20 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderComplete }: C
               </Card>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex justify-between mt-6">
+            {/* navigation buttons */}
+            <div className="flex justify-between">
               {step > 1 && step < 3 && (
                 <Button variant="outline" onClick={() => setStep(step - 1)}>
                   Back
                 </Button>
               )}
-
               {step < 3 && (
-                <Button onClick={handleNextStep} className="ml-auto bg-primary hover:bg-primary/90">
+                <Button className="ml-auto" onClick={nextStep}>
                   {step === 1 ? "Continue to Payment" : "Complete Order"}
                 </Button>
               )}
             </div>
-          </div>
+          </section>
         </div>
       </DialogContent>
     </Dialog>
