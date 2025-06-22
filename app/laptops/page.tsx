@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import Image from "next/image"
-import { Star, ShoppingCart, Filter, Search, Heart, Share2, Check } from "lucide-react"
+import { Star, ShoppingCart, Filter, Search, Heart, Share2, Check, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -19,14 +19,13 @@ interface LaptopData {
   name: string
   brand: string
   price: string
-  originalPrice?: string
-  image?: string
-  images?: string[]
+  original_price?: string
+  images: string[]
   rating: number
   reviews: number
   badge: string
   specs: string[]
-  inStock: boolean
+  in_stock: boolean
   description?: string
 }
 
@@ -38,7 +37,7 @@ const addToCart = (laptop: LaptopData) => {
     brand: laptop.brand,
     price: laptop.price,
     quantity: 1,
-    image: laptop.images?.[0] || laptop.image || "/placeholder.svg",
+    image: laptop.images?.[0] || "/placeholder.svg",
   }
 
   // Get existing cart
@@ -71,7 +70,7 @@ const addToWishlist = (laptop: LaptopData) => {
     name: laptop.name,
     brand: laptop.brand,
     price: laptop.price,
-    image: laptop.images?.[0] || laptop.image || "/placeholder.svg",
+    image: laptop.images?.[0] || "/placeholder.svg",
     dateAdded: new Date().toISOString(),
   }
 
@@ -151,21 +150,26 @@ export default function LaptopsPage() {
   const [selectedLaptop, setSelectedLaptop] = useState<LaptopData | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [wishlistItems, setWishlistItems] = useState<number[]>([])
+  const [loading, setLoading] = useState(true)
 
   const brands = ["All", ...new Set(laptops.map((laptop) => laptop.brand))]
 
-  // Load laptops from localStorage and listen for changes
+  // Load laptops from API
   useEffect(() => {
-    const loadLaptops = () => {
-      const saved = localStorage.getItem("swift-vibe-laptops")
-      if (saved) {
-        try {
-          const savedLaptops = JSON.parse(saved)
-          setLaptops(savedLaptops)
-          setFilteredLaptops(savedLaptops)
-        } catch (error) {
-          console.error("Failed to load saved laptops:", error)
+    const loadLaptops = async () => {
+      try {
+        const response = await fetch("/api/laptops")
+        if (response.ok) {
+          const laptopsData = await response.json()
+          setLaptops(laptopsData)
+          setFilteredLaptops(laptopsData)
+        } else {
+          console.error("Failed to load laptops")
         }
+      } catch (error) {
+        console.error("Error loading laptops:", error)
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -184,29 +188,13 @@ export default function LaptopsPage() {
     loadLaptops()
     loadWishlist()
 
-    // Listen for storage changes
-    const handleStorageChange = () => {
-      loadLaptops()
-    }
-
-    // Listen for direct laptop updates
-    const handleLaptopsUpdate = (event: CustomEvent) => {
-      console.log("Laptops updated:", event.detail)
-      setLaptops(event.detail)
-      setFilteredLaptops(event.detail)
-    }
-
     const handleWishlistUpdate = (event: CustomEvent) => {
       setWishlistItems(event.detail.map((item: any) => item.id))
     }
 
-    window.addEventListener("storage", handleStorageChange)
-    window.addEventListener("laptopsUpdated" as any, handleLaptopsUpdate)
     window.addEventListener("wishlistUpdated" as any, handleWishlistUpdate)
 
     return () => {
-      window.removeEventListener("storage", handleStorageChange)
-      window.removeEventListener("laptopsUpdated" as any, handleLaptopsUpdate)
       window.removeEventListener("wishlistUpdated" as any, handleWishlistUpdate)
     }
   }, [])
@@ -261,10 +249,22 @@ export default function LaptopsPage() {
     if (laptop.images && laptop.images.length > 0) {
       return laptop.images[0]
     }
-    if (laptop.image) {
-      return laptop.image
-    }
     return "/placeholder.svg?height=300&width=400"
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen">
+        <Header />
+        <div className="flex items-center justify-center py-16">
+          <div className="flex items-center space-x-2">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <p>Loading laptops...</p>
+          </div>
+        </div>
+        <Footer />
+      </main>
+    )
   }
 
   return (
@@ -371,7 +371,7 @@ export default function LaptopsPage() {
                     >
                       {laptop.badge}
                     </Badge>
-                    {!laptop.inStock && <Badge className="absolute top-3 right-3 bg-red-500">Out of Stock</Badge>}
+                    {!laptop.in_stock && <Badge className="absolute top-3 right-3 bg-red-500">Out of Stock</Badge>}
                     {laptop.images && laptop.images.length > 1 && (
                       <Badge className="absolute bottom-3 left-3 bg-blue-500">+{laptop.images.length - 1} more</Badge>
                     )}
@@ -426,8 +426,8 @@ export default function LaptopsPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <span className="text-lg font-bold text-gray-900">{laptop.price}</span>
-                        {laptop.originalPrice && (
-                          <span className="ml-2 text-sm text-gray-500 line-through">{laptop.originalPrice}</span>
+                        {laptop.original_price && (
+                          <span className="ml-2 text-sm text-gray-500 line-through">{laptop.original_price}</span>
                         )}
                       </div>
                     </div>
@@ -435,11 +435,11 @@ export default function LaptopsPage() {
                     <Button
                       className="w-full bg-primary hover:bg-primary/90"
                       size="sm"
-                      disabled={!laptop.inStock}
+                      disabled={!laptop.in_stock}
                       onClick={(e) => handleAddToCart(e, laptop)}
                     >
                       <ShoppingCart className="mr-2 h-4 w-4" />
-                      {laptop.inStock ? "Add to Cart" : "Out of Stock"}
+                      {laptop.in_stock ? "Add to Cart" : "Out of Stock"}
                     </Button>
                   </CardContent>
                 </Card>

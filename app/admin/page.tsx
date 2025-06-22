@@ -9,21 +9,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Laptop, Shield, Users, Package, Lock } from "lucide-react"
+import { Laptop, Shield, Users, Package, Lock, Loader2 } from "lucide-react"
 
 interface LaptopData {
   id: number
   name: string
   brand: string
   price: string
-  originalPrice?: string
-  image?: string
-  images?: string[]
+  original_price?: string
+  images: string[]
   rating: number
   reviews: number
   badge: string
   specs: string[]
-  inStock: boolean
+  in_stock: boolean
   description?: string
 }
 
@@ -33,6 +32,7 @@ export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [adminPassword, setAdminPassword] = useState("")
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
   // Admin password (in production, this should be environment variable)
   const ADMIN_PASSWORD = "SwiftVibe2024Admin!"
@@ -46,53 +46,22 @@ export default function AdminPage() {
     }
   }, [])
 
-  const loadLaptops = () => {
-    const saved = localStorage.getItem("swift-vibe-laptops")
-    if (saved) {
-      try {
-        const savedLaptops = JSON.parse(saved)
-        setLaptops(savedLaptops)
-      } catch (error) {
-        console.error("Failed to load saved laptops:", error)
-        setDefaultLaptops()
+  const loadLaptops = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch("/api/laptops")
+      if (response.ok) {
+        const laptopsData = await response.json()
+        setLaptops(laptopsData)
+      } else {
+        console.error("Failed to load laptops")
       }
-    } else {
-      setDefaultLaptops()
+    } catch (error) {
+      console.error("Error loading laptops:", error)
+    } finally {
+      setLoading(false)
+      setIsLoaded(true)
     }
-    setIsLoaded(true)
-  }
-
-  const setDefaultLaptops = () => {
-    const defaultLaptops = [
-      {
-        id: 1,
-        name: "MacBook Air M2",
-        brand: "Apple",
-        price: "ZMW 18,500",
-        originalPrice: "ZMW 20,000",
-        images: ["/placeholder.svg?height=300&width=400"],
-        rating: 4.9,
-        reviews: 124,
-        badge: "Best Seller",
-        specs: ["13.6-inch Display", "8GB RAM", "256GB SSD", "M2 Chip"],
-        inStock: true,
-      },
-      {
-        id: 2,
-        name: "ThinkPad X1 Carbon",
-        brand: "Lenovo",
-        price: "ZMW 15,200",
-        originalPrice: "ZMW 16,800",
-        images: ["/placeholder.svg?height=300&width=400"],
-        rating: 4.7,
-        reviews: 89,
-        badge: "Professional",
-        specs: ["14-inch Display", "16GB RAM", "512GB SSD", "Intel i7"],
-        inStock: true,
-      },
-    ]
-    setLaptops(defaultLaptops)
-    localStorage.setItem("swift-vibe-laptops", JSON.stringify(defaultLaptops))
   }
 
   const handleAdminLogin = (e: React.FormEvent) => {
@@ -115,15 +84,11 @@ export default function AdminPage() {
 
   const handleLaptopsUpdate = (updatedLaptops: LaptopData[]) => {
     setLaptops(updatedLaptops)
-    localStorage.setItem("swift-vibe-laptops", JSON.stringify(updatedLaptops))
-
-    // Dispatch custom event for immediate updates
-    window.dispatchEvent(new CustomEvent("laptopsUpdated", { detail: updatedLaptops }))
   }
 
   const stats = [
     { icon: Package, label: "Total Laptops", value: laptops.length.toString() },
-    { icon: Laptop, label: "In Stock", value: laptops.filter((l) => l.inStock).length.toString() },
+    { icon: Laptop, label: "In Stock", value: laptops.filter((l) => l.in_stock).length.toString() },
     { icon: Users, label: "Brands", value: new Set(laptops.map((l) => l.brand)).size.toString() },
     { icon: Shield, label: "Admin Access", value: "Active" },
   ]
@@ -177,7 +142,10 @@ export default function AdminPage() {
   if (!isLoaded) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p>Loading admin dashboard...</p>
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <p>Loading admin dashboard...</p>
+        </div>
       </div>
     )
   }

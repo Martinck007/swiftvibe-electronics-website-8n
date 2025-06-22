@@ -9,21 +9,20 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { MultiImageUpload } from "./multi-image-upload"
 import { ImageGallery } from "./image-gallery"
-import { Plus, Edit, Trash2, Save, X, Star } from "lucide-react"
+import { Plus, Edit, Trash2, Save, X, Star, Loader2 } from "lucide-react"
 
 interface Laptop {
   id: number
   name: string
   brand: string
   price: string
-  originalPrice?: string
-  image?: string // Legacy support
-  images?: string[] // New multi-image support
+  original_price?: string
+  images: string[]
   rating: number
   reviews: number
   badge: string
   specs: string[]
-  inStock: boolean
+  in_stock: boolean
   description?: string
 }
 
@@ -35,17 +34,18 @@ interface LaptopAdminProps {
 export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [editingLaptop, setEditingLaptop] = useState<Laptop | null>(null)
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<Partial<Laptop>>({
     name: "",
     brand: "",
     price: "",
-    originalPrice: "",
+    original_price: "",
     images: [],
     rating: 4.5,
     reviews: 0,
     badge: "New",
     specs: [],
-    inStock: true,
+    in_stock: true,
     description: "",
   })
 
@@ -61,88 +61,103 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
     setFormData((prev) => ({ ...prev, specs: specsArray }))
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name || !formData.brand || !formData.price) {
       alert("Please fill in all required fields")
       return
     }
 
-    // Ensure we have at least one image
-    const finalImages =
-      formData.images && formData.images.length > 0 ? formData.images : ["/placeholder.svg?height=300&width=400"]
+    setLoading(true)
 
-    const laptopData: Laptop = {
-      id: editingLaptop?.id || Date.now(),
-      name: formData.name!,
-      brand: formData.brand!,
-      price: formData.price!,
-      originalPrice: formData.originalPrice || "",
-      images: finalImages,
-      rating: formData.rating || 4.5,
-      reviews: formData.reviews || 0,
-      badge: formData.badge || "New",
-      specs: formData.specs || [],
-      inStock: formData.inStock !== false,
-      description: formData.description || "",
+    try {
+      const laptopData = {
+        name: formData.name!,
+        brand: formData.brand!,
+        price: formData.price!,
+        original_price: formData.original_price || null,
+        images:
+          formData.images && formData.images.length > 0 ? formData.images : ["/placeholder.svg?height=300&width=400"],
+        rating: formData.rating || 4.5,
+        reviews: formData.reviews || 0,
+        badge: formData.badge || "New",
+        specs: formData.specs || [],
+        in_stock: formData.in_stock !== false,
+        description: formData.description || null,
+      }
+
+      let response
+      if (editingLaptop) {
+        // Update existing laptop
+        response = await fetch(`/api/laptops/${editingLaptop.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(laptopData),
+        })
+      } else {
+        // Create new laptop
+        response = await fetch("/api/laptops", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(laptopData),
+        })
+      }
+
+      if (!response.ok) {
+        throw new Error("Failed to save laptop")
+      }
+
+      // Refresh laptops list
+      const laptopsResponse = await fetch("/api/laptops")
+      const updatedLaptops = await laptopsResponse.json()
+      onLaptopsUpdate(updatedLaptops)
+
+      alert(editingLaptop ? "Laptop updated successfully!" : "Laptop added successfully!")
+      resetForm()
+      setIsOpen(false)
+    } catch (error) {
+      console.error("Error saving laptop:", error)
+      alert("Failed to save laptop. Please try again.")
+    } finally {
+      setLoading(false)
     }
-
-    console.log("Submitting laptop data:", laptopData)
-
-    let updatedLaptops
-    if (editingLaptop) {
-      updatedLaptops = laptops.map((laptop) => (laptop.id === editingLaptop.id ? laptopData : laptop))
-      console.log("Updated existing laptop")
-    } else {
-      updatedLaptops = [...laptops, laptopData]
-      console.log("Added new laptop")
-    }
-
-    console.log("Final laptops array:", updatedLaptops)
-
-    // Update the laptops
-    onLaptopsUpdate(updatedLaptops)
-
-    // Trigger storage event to update other components
-    window.dispatchEvent(new Event("storage"))
-
-    // Dispatch custom event for immediate updates
-    window.dispatchEvent(new CustomEvent("laptopsUpdated", { detail: updatedLaptops }))
-
-    // Show success message
-    alert(editingLaptop ? "Laptop updated successfully!" : "Laptop added successfully!")
-
-    resetForm()
-    setIsOpen(false)
   }
 
   const handleEdit = (laptop: Laptop) => {
-    console.log("Editing laptop:", laptop)
     setEditingLaptop(laptop)
-
-    // Handle both legacy single image and new multi-image format
-    const images = laptop.images || (laptop.image ? [laptop.image] : [])
-
     setFormData({
       ...laptop,
-      images: images,
       specs: laptop.specs || [],
     })
     setIsOpen(true)
   }
 
-  const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this laptop?")) {
-      const updatedLaptops = laptops.filter((laptop) => laptop.id !== id)
-      console.log("Deleting laptop, updated array:", updatedLaptops)
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this laptop?")) {
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const response = await fetch(`/api/laptops/${id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete laptop")
+      }
+
+      // Refresh laptops list
+      const laptopsResponse = await fetch("/api/laptops")
+      const updatedLaptops = await laptopsResponse.json()
       onLaptopsUpdate(updatedLaptops)
 
-      // Trigger storage event to update other components
-      window.dispatchEvent(new Event("storage"))
-
-      // Dispatch custom event for immediate updates
-      window.dispatchEvent(new CustomEvent("laptopsUpdated", { detail: updatedLaptops }))
-
       alert("Laptop deleted successfully!")
+    } catch (error) {
+      console.error("Error deleting laptop:", error)
+      alert("Failed to delete laptop. Please try again.")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -152,13 +167,13 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
       name: "",
       brand: "",
       price: "",
-      originalPrice: "",
+      original_price: "",
       images: [],
       rating: 4.5,
       reviews: 0,
       badge: "New",
       specs: [],
-      inStock: true,
+      in_stock: true,
       description: "",
     })
   }
@@ -168,13 +183,9 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
     setIsOpen(false)
   }
 
-  // Get the primary image for display
   const getPrimaryImage = (laptop: Laptop) => {
     if (laptop.images && laptop.images.length > 0) {
       return laptop.images[0]
-    }
-    if (laptop.image) {
-      return laptop.image
     }
     return "/placeholder.svg?height=300&width=400"
   }
@@ -185,7 +196,7 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
         <h2 className="text-2xl font-bold text-gray-900">Manage Laptops ({laptops.length})</h2>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90">
+            <Button className="bg-primary hover:bg-primary/90" disabled={loading}>
               <Plus className="mr-2 h-4 w-4" />
               Add New Laptop
             </Button>
@@ -246,8 +257,8 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Original Price (Optional)</label>
                   <Input
                     placeholder="ZMW 18,000"
-                    value={formData.originalPrice || ""}
-                    onChange={(e) => handleInputChange("originalPrice", e.target.value)}
+                    value={formData.original_price || ""}
+                    onChange={(e) => handleInputChange("original_price", e.target.value)}
                   />
                 </div>
 
@@ -318,8 +329,8 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
                 <input
                   type="checkbox"
                   id="inStock"
-                  checked={formData.inStock !== false}
-                  onChange={(e) => handleInputChange("inStock", e.target.checked)}
+                  checked={formData.in_stock !== false}
+                  onChange={(e) => handleInputChange("in_stock", e.target.checked)}
                 />
                 <label htmlFor="inStock" className="text-sm font-medium text-gray-700">
                   In Stock
@@ -328,11 +339,11 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
 
               {/* Action Buttons */}
               <div className="flex space-x-3 pt-4">
-                <Button onClick={handleSubmit} className="flex-1 bg-primary hover:bg-primary/90">
-                  <Save className="mr-2 h-4 w-4" />
+                <Button onClick={handleSubmit} className="flex-1 bg-primary hover:bg-primary/90" disabled={loading}>
+                  {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   {editingLaptop ? "Update Laptop" : "Add Laptop"}
                 </Button>
-                <Button variant="outline" onClick={handleClose}>
+                <Button variant="outline" onClick={handleClose} disabled={loading}>
                   <X className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>
@@ -356,7 +367,7 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
               {laptop.images && laptop.images.length > 1 && (
                 <Badge className="absolute top-2 right-2 bg-blue-500">+{laptop.images.length - 1} more</Badge>
               )}
-              {!laptop.inStock && <Badge className="absolute bottom-2 right-2 bg-red-500">Out of Stock</Badge>}
+              {!laptop.in_stock && <Badge className="absolute bottom-2 right-2 bg-red-500">Out of Stock</Badge>}
             </div>
             <CardContent className="p-4">
               <div className="mb-2">
@@ -388,19 +399,25 @@ export function LaptopAdmin({ laptops, onLaptopsUpdate }: LaptopAdminProps) {
               {/* Price */}
               <div className="mb-3">
                 <span className="text-lg font-bold text-primary">{laptop.price}</span>
-                {laptop.originalPrice && (
-                  <span className="ml-2 text-sm text-gray-500 line-through">{laptop.originalPrice}</span>
+                {laptop.original_price && (
+                  <span className="ml-2 text-sm text-gray-500 line-through">{laptop.original_price}</span>
                 )}
               </div>
 
               {/* Actions */}
               <div className="flex space-x-2">
-                <Button variant="outline" size="sm" onClick={() => handleEdit(laptop)} className="flex-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEdit(laptop)}
+                  className="flex-1"
+                  disabled={loading}
+                >
                   <Edit className="mr-1 h-3 w-3" />
                   Edit
                 </Button>
-                <Button variant="destructive" size="sm" onClick={() => handleDelete(laptop.id)}>
-                  <Trash2 className="h-3 w-3" />
+                <Button variant="destructive" size="sm" onClick={() => handleDelete(laptop.id)} disabled={loading}>
+                  {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                 </Button>
               </div>
             </CardContent>
